@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "zip.h"
+#include "wrapper_functions.h"
 
 uint32_t crc32(const unsigned char* data, unsigned length) {
 	uint32_t crc = 0xFFFFFFFF;
@@ -73,7 +74,7 @@ central_directory_record_tail get_central_directory_record_tail(uint32_t file_si
 	return cdrt;
 }
 
-int main(char* argv[], int argc) {
+int main(int argc, char* argv[]) {
 	char* file_name = "img.jpg";
 
 	FILE* fp = fopen(file_name, "rb");
@@ -81,7 +82,7 @@ int main(char* argv[], int argc) {
 	uint32_t file_size = ftell(fp);
 	rewind(fp);
 
-	byte* file_data = malloc(file_size);
+	unsigned char* file_data = Malloc(file_size);
 	fread(file_data, file_size, 1, fp);
 	fclose(fp);
 	

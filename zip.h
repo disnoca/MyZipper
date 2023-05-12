@@ -7,9 +7,7 @@
 #define CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE 0x02014B50
 #define CENTRAL_DIRECTORY_RECORD_TAIL_SIGNATURE 0x06054B50
 
-typedef unsigned char byte;
-
-/* Structs */
+/* Zip Structs */
 
 typedef struct {
 	uint32_t signature;
