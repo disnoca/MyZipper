@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "zip.h"
+#include "file.h"
 #include "wrapper_functions.h"
 
 uint32_t crc32(const unsigned char* data, unsigned length) {

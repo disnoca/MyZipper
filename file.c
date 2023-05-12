@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <fileapi.h>
+#include <windows.h>
 #include <winbase.h>
 #include "file.h"
 #include "wrapper_functions.h"
@@ -36,7 +37,7 @@ void get_file_data(file* file) {
 }
 
 void get_file_mod_time(file* file) {
-	HANDLE fileHandle = _CreateFileA(file->name);
+	HANDLE fileHandle = _CreateFile(file->name);
 
 	FILETIME lastWriteTime;
 	_GetFileTime(fileHandle, NULL, NULL, &lastWriteTime);
