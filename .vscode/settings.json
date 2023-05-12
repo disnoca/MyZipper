@@ -1,0 +1,11 @@
+{
+	"files.associations": {
+		"wrapper_functions.h": "c",
+		"stdbool.h": "c",
+		"stdint.h": "c",
+		"fileapi.h": "c",
+		"typeinfo": "c",
+		"file.h": "c",
+		"file_info.h": "c"
+	}
+}
