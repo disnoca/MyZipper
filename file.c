@@ -43,11 +43,11 @@ void get_file_mod_time(file* file) {
 	_GetFileTime(fileHandle, NULL, NULL, &lastWriteTime);
 	_CloseHandle(fileHandle);
 
-	LPWORD lpFatDate, lpFatTime;
-	_FileTimeToDosDateTime(&lastWriteTime, lpFatDate, lpFatTime);
+	WORD lpFatDate, lpFatTime;
+	_FileTimeToDosDateTime(&lastWriteTime, &lpFatDate, &lpFatTime);
 
-	file->mod_time = *lpFatTime;
-	file->mod_date = *lpFatDate;
+	file->mod_time = lpFatTime;
+	file->mod_date = lpFatDate;
 }
 
 file* get_file(char* path) {

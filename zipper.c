@@ -75,34 +75,36 @@ central_directory_record_tail get_central_directory_record_tail(uint32_t file_si
 	return cdrt;
 }
 
-int main(int argc, char* argv[]) {
-	char* file_name = "img.jpg";
+int main() {
+	//char* file_name = "img.jpg";
+//
+	//FILE* fp = fopen(file_name, "rb");
+	//fseek(fp, 0L, SEEK_END);
+	//uint32_t file_size = ftell(fp);
+	//rewind(fp);
+//
+	//unsigned char* file_data = Malloc(file_size);
+	//fread(file_data, file_size, 1, fp);
+	//fclose(fp);
+	//
+	//uint16_t file_name_length = strlen(file_name);
+	//uint32_t crc = crc32(file_data, file_size);
+//
+	//local_file_header lfh = get_file_header(file_size, file_name_length, crc);
+	//central_directory_file_header cdfh = get_central_directory_file_header(file_size, file_name_length, crc);
+	//central_directory_record_tail cdrt = get_central_directory_record_tail(file_size, file_name_length);
+//
+	//FILE* zip_file = fopen("my_zip.zip", "wb");
+	//fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
+	//fwrite(file_name, file_name_length, 1, zip_file);
+	//fwrite(file_data, file_size, 1, zip_file);
+	//fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
+	//fwrite(file_name, file_name_length, 1, zip_file);
+	//fwrite(&cdrt, sizeof(central_directory_record_tail), 1, zip_file);
+//
+	//fclose(zip_file);
 
-	FILE* fp = fopen(file_name, "rb");
-	fseek(fp, 0L, SEEK_END);
-	uint32_t file_size = ftell(fp);
-	rewind(fp);
-
-	unsigned char* file_data = Malloc(file_size);
-	fread(file_data, file_size, 1, fp);
-	fclose(fp);
-	
-	uint16_t file_name_length = strlen(file_name);
-	uint32_t crc = crc32(file_data, file_size);
-
-	local_file_header lfh = get_file_header(file_size, file_name_length, crc);
-	central_directory_file_header cdfh = get_central_directory_file_header(file_size, file_name_length, crc);
-	central_directory_record_tail cdrt = get_central_directory_record_tail(file_size, file_name_length);
-
-	FILE* zip_file = fopen("my_zip.zip", "wb");
-	fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
-	fwrite(file_name, file_name_length, 1, zip_file);
-	fwrite(file_data, file_size, 1, zip_file);
-	fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
-	fwrite(file_name, file_name_length, 1, zip_file);
-	fwrite(&cdrt, sizeof(central_directory_record_tail), 1, zip_file);
-
-	fclose(zip_file);
+	get_file(".\\img.jpg");
 
 	return 0;
 }
