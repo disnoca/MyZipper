@@ -4,14 +4,19 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-typedef struct {
+typedef struct file file;
+
+struct file {
 	bool is_directory;
+	unsigned num_children;
+	file* children;
 	char* name;
 	uint16_t name_length;
 	uint32_t size;
 	unsigned char* data;
 	uint16_t mod_time, mod_date;
-} file;
+	uint32_t crc32;
+};
 
 /**
  * Returns a file struct pointer with the file's data and info.
