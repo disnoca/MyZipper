@@ -6,25 +6,84 @@
 #include "file.h"
 #include "wrapper_functions.h"
 
-/* Helper Functions */
+#define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
 
-bool is_directory(char *path) {
+
+/* Generic Helper Functions */
+
+static bool is_directory(char* path) {
 	return _GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY;
 }
 
-void get_file_path(file* file, char* path) {
-	// Ignore preceding dot and slash if in path
+
+/* File Helper Functions */
+
+static void get_file_name(file* file, char* path) {
+	// Cut out preceding dot and slash if in path
 	if(path[0] == '.' && path[1] == '\\')
 		path += 2;
 
 	uint16_t name_length = strlen(path);
+
+	// Cut out trailing slash if file is a directory and path has it
+	if(file->is_directory && path[name_length - 1] == '\\')
+		name_length--;
+	
 	file->name_length = name_length;
 	
 	file->name = Malloc(name_length);
 	memcpy(file->name, path, name_length);
 }
 
-void get_file_data(file* file) {
+static void get_file_children(file* f) {
+	WIN32_FIND_DATA fdFile;
+
+	// Append "\*" to file name to get all files in directory
+	char path[f->name_length + 3];
+	memcpy(path, f->name, f->name_length);
+	memcpy(path + f->name_length, "\\*", 3);
+
+	// First two file finds will always return "." and ".."
+    HANDLE hFind = _FindFirstFile(path, &fdFile);
+	_FindNextFile(hFind, &fdFile);
+
+	// Allocate memory for found file names
+	unsigned children_array_capacity = DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY;
+	f->children = Malloc(sizeof(file*) * children_array_capacity);
+
+    while(_FindNextFile(hFind, &fdFile)) {
+		// Allocate more memory for array if necessary
+		if(f->num_children == children_array_capacity) {
+			children_array_capacity *= 2;
+			f->children = Realloc(f->children, sizeof(file*) * children_array_capacity);
+		}
+
+		// Copy path and found file name into buffer, inserting a slash in between
+		unsigned file_name_length = f->name_length + strlen(fdFile.cFileName) + 2;
+		char file_name[file_name_length];
+		memcpy(file_name, f->name, f->name_length);
+		file_name[f->name_length] = '\\';
+		memcpy(file_name + f->name_length + 1, fdFile.cFileName, file_name_length - f->name_length - 1);
+
+		/*
+		 * Create child file.
+		 * 
+		 * This recursively creates the child's children (if a directory) and so on, meaning
+		 * it only needs to be manually called once on each of the root folder's children
+		 * to capture all of its internal content.
+		*/
+		file* child = get_file(file_name);
+
+		// Save child file
+		f->children[f->num_children++] = child;
+    }
+
+    _FindClose(hFind);
+
+	Realloc(f->children, sizeof(file) * f->num_children);
+}
+
+static void get_file_data(file* file) {
 	// Get file size
 	FILE* fp = Fopen(file->name, "rb");
 	Fseek(fp, 0L, SEEK_END);
@@ -40,7 +99,7 @@ void get_file_data(file* file) {
 	file->data = file_data;
 }
 
-void get_file_mod_time(file* file) {
+static void get_file_mod_time(file* file) {
 	HANDLE fileHandle = _CreateFile(file->name);
 
 	// Get file last write time
@@ -62,10 +121,16 @@ void get_file_mod_time(file* file) {
 file* get_file(char* path) {
 	file* file = Calloc(1, sizeof(file));
 
-	file->is_directory = is_directory(path);
-	get_file_path(file, path);
-	get_file_data(file);
-	get_file_mod_time(file);
+	get_file_name(file, path);
+
+	file->is_directory = is_directory(file->name);
+
+	if(file->is_directory)
+		get_file_children(file);
+	else {
+		get_file_data(file);
+		get_file_mod_time(file);
+	}
 
     return file;
 }

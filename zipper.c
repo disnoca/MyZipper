@@ -76,7 +76,7 @@ central_directory_record_tail get_central_directory_record_tail(file* file) {
 }
 
 int main() {
-	file* file = get_file(".\\img.jpg");
+	file* file = get_file("img.jpg");
 
 	local_file_header lfh = get_file_header(file);
 	central_directory_file_header cdfh = get_central_directory_file_header(file);

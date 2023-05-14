@@ -7,11 +7,11 @@
 typedef struct file file;
 
 struct file {
-	bool is_directory;
-	unsigned num_children;
-	file* children;
 	char* name;
 	uint16_t name_length;
+	bool is_directory;
+	unsigned num_children;
+	file** children;
 	uint32_t size;
 	unsigned char* data;
 	uint16_t mod_time, mod_date;
