@@ -15,24 +15,36 @@ static bool is_directory(char* path) {
 	return _GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY;
 }
 
+static uint32_t calculate_crc32(unsigned char* data, uint32_t length) {
+	uint32_t crc = 0xFFFFFFFF;
+
+	for (unsigned i = 0; i < length; i++) {
+		crc ^= data[i];
+		for (unsigned j = 0; j < 8; j++)
+			crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+	}
+
+	return ~crc;
+}
+
 
 /* File Helper Functions */
 
-static void get_file_name(file* file, char* path) {
+static void get_file_name(file* f, char* path) {
 	// Cut out preceding dot and slash if in path
 	if(path[0] == '.' && path[1] == '\\')
 		path += 2;
 
 	uint16_t name_length = strlen(path);
 
-	// Cut out trailing slash if file is a directory and path has it
-	if(file->is_directory && path[name_length - 1] == '\\')
+	// Cut out trailing slash if path has it
+	if(path[name_length - 1] == '\\')
 		name_length--;
 	
-	file->name_length = name_length;
+	f->name_length = name_length;
 	
-	file->name = Malloc(name_length);
-	memcpy(file->name, path, name_length);
+	f->name = Malloc(name_length);
+	memcpy(f->name, path, name_length);
 }
 
 static void get_file_children(file* f) {
@@ -72,7 +84,7 @@ static void get_file_children(file* f) {
 		 * it only needs to be manually called once on each of the root folder's children
 		 * to capture all of its internal content.
 		*/
-		file* child = get_file(file_name);
+		file* child = file_create(file_name);
 
 		// Save child file
 		f->children[f->num_children++] = child;
@@ -83,24 +95,22 @@ static void get_file_children(file* f) {
 	Realloc(f->children, sizeof(file) * f->num_children);
 }
 
-static void get_file_data(file* file) {
+static void get_file_data(file* f) {
 	// Get file size
-	FILE* fp = Fopen(file->name, "rb");
+	FILE* fp = Fopen(f->name, "rb");
 	Fseek(fp, 0L, SEEK_END);
-	uint32_t file_size = Ftell(fp);
+	f->size = Ftell(fp);
 	rewind(fp);
 
-	// Read file data
-	unsigned char* file_data = Malloc(file_size);
-	fread(file_data, file_size, 1, fp);
-	Fclose(fp);
+	f->data = Malloc(f->size);
 
-	file->size = file_size;
-	file->data = file_data;
+	// Read file data
+	fread(f->data, f->size, 1, fp);
+	Fclose(fp);
 }
 
-static void get_file_mod_time(file* file) {
-	HANDLE fileHandle = _CreateFile(file->name);
+static void get_file_mod_time(file* f) {	// TODO: add time difference
+	HANDLE fileHandle = _CreateFile(f->name);
 
 	// Get file last write time
 	FILETIME lastWriteTime;
@@ -111,33 +121,37 @@ static void get_file_mod_time(file* file) {
 	WORD lpFatDate, lpFatTime;
 	_FileTimeToDosDateTime(&lastWriteTime, &lpFatDate, &lpFatTime);
 
-	file->mod_time = lpFatTime;
-	file->mod_date = lpFatDate;
+	f->mod_time = lpFatTime;
+	f->mod_date = lpFatDate;
 }
 
 
 /* Header Implementations */
 
-file* get_file(char* path) {
-	file* file = Calloc(1, sizeof(file));
+file* file_create(char* path) {
+	file* f = Calloc(1, sizeof(file));
 
-	get_file_name(file, path);
+	get_file_name(f, path);
 
-	file->is_directory = is_directory(file->name);
+	f->is_directory = is_directory(f->name);
 
-	if(file->is_directory)
-		get_file_children(file);
+	if(f->is_directory)
+		get_file_children(f);
 	else {
-		get_file_data(file);
-		get_file_mod_time(file);
+		get_file_data(f);
+		get_file_mod_time(f);
+		f->crc = calculate_crc32(f->data, f->size);
 	}
 
-    return file;
+    return f;
 }
 
-void destroy_file(file* file) {
-	Free(file->children);
-	Free(file->name);
-	Free(file->data);
-	Free(file);
+void file_destroy(file* f) {
+	if(f->is_directory)
+		Free(f->children);
+	else
+		Free(f->data);
+
+	Free(f->name);
+	Free(f);
 }

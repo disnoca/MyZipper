@@ -42,7 +42,7 @@ typedef struct {
 	uint16_t disk_number_start;
 	uint16_t internal_file_attributes;
 	uint32_t external_file_attributes;
-	uint32_t local_header_relative_offset;
+	uint32_t local_header_offset;
 	//char file_name[];
 	//unsigned char extra_field[];
 	//char file_comment[];

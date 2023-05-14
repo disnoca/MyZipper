@@ -51,6 +51,11 @@ void Fclose(FILE* stream) {
         exit_with_error("%s\n", "Fclose error");
 }
 
+void Fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream) {
+    if(fwrite(ptr, size, nmemb, stream) != nmemb)
+        exit_with_error("%s\n", "Fwrite error");
+}
+
 void Fseek(FILE* stream, long int offset, int origin) {
     if(fseek(stream, offset, origin) != 0)
         exit_with_error("%s\n", "Fseek error");

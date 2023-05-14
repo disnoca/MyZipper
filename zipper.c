@@ -6,91 +6,99 @@
 #include "file.h"
 #include "wrapper_functions.h"
 
-uint32_t crc32(const unsigned char* data, unsigned length) {
-	uint32_t crc = 0xFFFFFFFF;
+#define WINDOWS_NTFS_FS 0x0A00
 
-	for (unsigned i = 0; i < length; i++) {
-		crc ^= data[i];
-		for (unsigned j = 0; j < 8; j++)
-			crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
-	}
+static uint16_t num_records;
+static uint32_t body_size, central_directory_offset;
 
-	return ~crc;
-}
 
-local_file_header get_file_header(file* file) {
+static local_file_header get_file_header(file* f) {
 	local_file_header lfh;
 
 	lfh.signature = LOCAL_FILE_HEADER_SIGNATURE;
 	lfh.version = 10;
 	lfh.flags = 0x0000;
 	lfh.compression = 0;
-	lfh.mod_time = 0x7d1c;
-	lfh.mod_date = 0x354b;
-	lfh.crc32 = crc32(file->data, file->size);
-	lfh.compressed_size = file->size;
-	lfh.uncompressed_size = file->size;
-	lfh.file_name_length = file->name_length;
+	lfh.mod_time = f->mod_time;
+	lfh.mod_date = f->mod_date;
+	lfh.crc32 = f->crc;
+	lfh.compressed_size = f->size;
+	lfh.uncompressed_size = f->size;
+	lfh.file_name_length = f->name_length;
 	lfh.extra_field_length = 0;
 
 	return lfh;
 }
 
-central_directory_file_header get_central_directory_file_header(file* file) {
+static central_directory_file_header get_central_directory_file_header(file* f) {
 	central_directory_file_header cdfh;
 
 	cdfh.signature = CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE;
-	cdfh.version_made_by = 10;
+	cdfh.version_made_by = WINDOWS_NTFS_FS || 10;
 	cdfh.version_needed_to_extract = 10;
 	cdfh.flags = 0x0000;
 	cdfh.compression = 0;
-	cdfh.mod_time = 0x7d1c;
-	cdfh.mod_date = 0x354b;
-	cdfh.crc32 = crc32(file->data, file->size);
-	cdfh.compressed_size = file->size;
-	cdfh.uncompressed_size = file->size;
-	cdfh.file_name_length = file->name_length;
+	cdfh.mod_time = f->mod_time;
+	cdfh.mod_date = f->mod_date;
+	cdfh.crc32 = f->crc;
+	cdfh.compressed_size = f->size;
+	cdfh.uncompressed_size = f->size;
+	cdfh.file_name_length = f->name_length;
 	cdfh.extra_field_length = 0;
 	cdfh.file_comment_length = 0;
 	cdfh.disk_number_start = 0;
 	cdfh.internal_file_attributes = 0;
 	cdfh.external_file_attributes = 0;
-	cdfh.local_header_relative_offset = 0;
+	cdfh.local_header_offset = central_directory_offset;
 
 	return cdfh;
 }
 
-central_directory_record_tail get_central_directory_record_tail(file* file) {
+static central_directory_record_tail get_central_directory_record_tail() {
 	central_directory_record_tail cdrt;
 
 	cdrt.signature = CENTRAL_DIRECTORY_RECORD_TAIL_SIGNATURE;
 	cdrt.disk_number = 0;
 	cdrt.central_directory_start_disk_number = 0;
-	cdrt.num_records_on_disk = 1;
-	cdrt.num_total_records = 1;
-	cdrt.central_directory_size = sizeof(central_directory_file_header) + file->name_length;
-	cdrt.central_directory_start_offset = sizeof(local_file_header) + file->name_length + file->size;
+	cdrt.num_records_on_disk = num_records;
+	cdrt.num_total_records = num_records;
+	cdrt.central_directory_size = central_directory_offset;
+	cdrt.central_directory_start_offset = body_size;
 	cdrt.comment_length = 0;
 
 	return cdrt;
 }
 
+static void add_file_to_zip(FILE* zip_file, char* path) {
+	file* f = file_create(path);
+
+	local_file_header lfh = get_file_header(f);
+	central_directory_file_header cdfh = get_central_directory_file_header(f);
+
+	Fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
+	Fwrite(f->name, f->name_length, 1, zip_file);
+	Fwrite(f->data, f->size, 1, zip_file);
+	// TODO: save central directory file header
+
+	num_records++;
+	body_size += sizeof(local_file_header) + f->name_length + f->size;
+	central_directory_offset += sizeof(central_directory_file_header) + f->name_length;
+
+	file_destroy(f);
+}
+
 int main() {
-	file* file = get_file("img.jpg");
+	FILE* zip_file = Fopen("my_zip.zip", "wb");
 
-	local_file_header lfh = get_file_header(file);
-	central_directory_file_header cdfh = get_central_directory_file_header(file);
-	central_directory_record_tail cdrt = get_central_directory_record_tail(file);
+	add_file_to_zip(zip_file, "img.jpg");
+	add_file_to_zip(zip_file, "file.h");
+	
+	central_directory_record_tail cdrt = get_central_directory_record_tail();
 
-	FILE* zip_file = fopen("my_zip.zip", "wb");
-	fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
-	fwrite(file->name, file->name_length, 1, zip_file);
-	fwrite(file->data, file->size, 1, zip_file);
-	fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
-	fwrite(file->name, file->name_length, 1, zip_file);
-	fwrite(&cdrt, sizeof(central_directory_record_tail), 1, zip_file);
-
-	fclose(zip_file);
+	// TODO: write saved central directory file headers
+	Fwrite(&cdrt, sizeof(central_directory_record_tail), 1, zip_file);
+	
+	Fclose(zip_file);
 
 	return 0;
 }

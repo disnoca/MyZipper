@@ -15,7 +15,7 @@ struct file {
 	uint32_t size;
 	unsigned char* data;
 	uint16_t mod_time, mod_date;
-	uint32_t crc32;
+	uint32_t crc;
 };
 
 /**
@@ -24,13 +24,13 @@ struct file {
  * @param path the relative path to the file
  * @return a file struct pointer with the file's data and info
 */
-file* get_file(char* path);
+file* file_create(char* path);
 
 /**
  * Destroys the specified file struct, freeing its allocated memory.
  * 
  * @param file the file struct to destroy
 */
-void destroy_file(file* file);
+void file_destroy(file* file);
 
 #endif

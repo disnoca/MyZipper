@@ -15,6 +15,7 @@ void Free(void* ptr);
 
 FILE* Fopen(const char* filename, const char* mode);
 void Fclose(FILE* stream);
+void Fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream);
 void Fseek(FILE* stream, long int offset, int origin);
 long Ftell(FILE* stream);
 
