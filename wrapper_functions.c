@@ -13,16 +13,23 @@ void exit_with_error(const char* format, ...) {
 }
 
 void* Malloc(size_t size) {
-    void* ptr;
-    if((ptr = malloc(size)) == NULL) 
+    void* ptr = malloc(size);
+    if(ptr == NULL) 
         exit_with_error("%s\n", "Malloc error");
     return ptr;
 }
 
 void* Calloc(size_t nitems, size_t size) {
-    void* ptr;
-    if((ptr = calloc(nitems, size)) == NULL) 
+    void* ptr = calloc(nitems, size);
+    if(ptr == NULL) 
         exit_with_error("%s\n", "Calloc error");
+    return ptr;
+}
+
+void* Realloc(void* ptr, size_t size) {
+    ptr = realloc(ptr, size);
+    if(ptr == NULL) 
+        exit_with_error("%s\n", "Realloc error");
     return ptr;
 }
 
@@ -85,4 +92,25 @@ void _CloseHandle(HANDLE hObject) {
 void _FileTimeToDosDateTime(const FILETIME* lpFileTime, LPWORD lpFatDate, LPWORD lpFatTime) {
     if(!FileTimeToDosDateTime(lpFileTime, lpFatDate, lpFatTime))
         exit_with_error("FileTimeToDosDateTime error: %lu\n", GetLastError());
+}
+
+HANDLE _FindFirstFile(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData) {
+    HANDLE hFind = FindFirstFile(lpFileName, lpFindFileData);
+    if(hFind == INVALID_HANDLE_VALUE)
+        exit_with_error("FindFirstFile error: %lu\n", GetLastError());
+    return hFind;
+}
+
+BOOL _FindNextFile(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData) {
+    if(!FindNextFile(hFindFile, lpFindFileData)) {
+        if(GetLastError() != ERROR_NO_MORE_FILES)
+            exit_with_error("FindNextFile error: %lu\n", GetLastError());
+        return FALSE;
+    }
+    return TRUE;
+}
+
+void _FindClose(HANDLE hFindFile) {
+    if(!FindClose(hFindFile))
+        exit_with_error("FindClose error: %lu\n", GetLastError());
 }
