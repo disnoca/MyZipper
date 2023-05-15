@@ -138,9 +138,9 @@ file* file_create(char* path) {
 	if(f->is_directory)
 		get_file_children(f);
 	else {
-		get_file_data(f);
+		get_file_data(f);		// TODO: lazy data loading
 		get_file_mod_time(f);
-		f->crc = calculate_crc32(f->data, f->size);
+		f->crc32 = calculate_crc32(f->data, f->size);
 	}
 
     return f;
@@ -149,7 +149,7 @@ file* file_create(char* path) {
 void file_destroy(file* f) {
 	if(f->is_directory)
 		Free(f->children);
-	else
+	else if(f->data != NULL)
 		Free(f->data);
 
 	Free(f->name);

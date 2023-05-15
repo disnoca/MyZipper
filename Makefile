@@ -3,7 +3,8 @@ CFLAGS = -Wall -Wextra
 
 SOURCES := \
 wrapper_functions.c \
-file.c
+file.c \
+queue.c
 
 TARGET = zipper
 

@@ -15,7 +15,8 @@ struct file {
 	uint32_t size;
 	unsigned char* data;
 	uint16_t mod_time, mod_date;
-	uint32_t crc;
+	uint32_t crc32;
+	uint32_t local_header_offset;
 };
 
 /**
