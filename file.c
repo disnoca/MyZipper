@@ -35,25 +35,29 @@ static void get_file_name(file* f, char* path) {
 	if(path[0] == '.' && path[1] == '\\')
 		path += 2;
 
-	uint16_t name_length = strlen(path);
+	f->name_length = strlen(path);
 
-	// Cut out trailing slash if path has it
-	if(path[name_length - 1] == '\\')
-		name_length--;
-	
-	f->name_length = name_length;
-	
-	f->name = Malloc(name_length);
-	memcpy(f->name, path, name_length);
+	// If file is a directory and does not have a trailing slash, add one
+	if(f->is_directory && path[f->name_length - 1] != '\\') {
+		f->name_length++;
+		f->name = Malloc(f->name_length);
+		memcpy(f->name, path, f->name_length - 1);
+		f->name[f->name_length - 1] = '\\';
+	} 
+	// Otherwise, just copy path into file name
+	else {
+		f->name = Malloc(f->name_length);
+		memcpy(f->name, path, f->name_length);
+	}
 }
 
 static void get_file_children(file* f) {
 	WIN32_FIND_DATA fdFile;
 
-	// Append "\*" to file name to get all files in directory
-	char path[f->name_length + 3];
+	// Append "*" to path to get all files in directory
+	char path[f->name_length + 2];
 	memcpy(path, f->name, f->name_length);
-	memcpy(path + f->name_length, "\\*", 3);
+	memcpy(path + f->name_length, "*", 2);
 
 	// First two file finds will always return "." and ".."
     HANDLE hFind = _FindFirstFile(path, &fdFile);
@@ -70,12 +74,11 @@ static void get_file_children(file* f) {
 			f->children = Realloc(f->children, sizeof(file*) * children_array_capacity);
 		}
 
-		// Copy path and found file name into buffer, inserting a slash in between
-		unsigned file_name_length = f->name_length + strlen(fdFile.cFileName) + 2;
+		// Copy path and found file name into buffer
+		unsigned file_name_length = f->name_length + strlen(fdFile.cFileName) + 1;
 		char file_name[file_name_length];
 		memcpy(file_name, f->name, f->name_length);
-		file_name[f->name_length] = '\\';
-		memcpy(file_name + f->name_length + 1, fdFile.cFileName, file_name_length - f->name_length - 1);
+		memcpy(file_name + f->name_length, fdFile.cFileName, file_name_length - f->name_length);
 
 		/*
 		 * Create child file.
@@ -131,9 +134,9 @@ static void get_file_mod_time(file* f) {	// TODO: add time difference
 file* file_create(char* path) {
 	file* f = Calloc(1, sizeof(file));
 
-	get_file_name(f, path);
+	f->is_directory = is_directory(path);
 
-	f->is_directory = is_directory(f->name);
+	get_file_name(f, path);
 
 	if(f->is_directory)
 		get_file_children(f);

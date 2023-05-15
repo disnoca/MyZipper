@@ -27,6 +27,11 @@ void* Calloc(size_t nitems, size_t size) {
 }
 
 void* Realloc(void* ptr, size_t size) {
+    if(size == 0) {
+        Free(ptr);
+        return NULL;
+    }
+
     ptr = realloc(ptr, size);
     if(ptr == NULL) 
         exit_with_error("%s\n", "Realloc error");
@@ -52,6 +57,9 @@ void Fclose(FILE* stream) {
 }
 
 void Fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream) {
+    if(size == 0 || nmemb == 0)
+        return;
+
     if(fwrite(ptr, size, nmemb, stream) != nmemb)
         exit_with_error("%s\n", "Fwrite error");
 }
