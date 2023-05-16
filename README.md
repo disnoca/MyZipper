@@ -1,7 +1,5 @@
 ## TODO
 
-- Add lazy file data loading
-
 - Fix time difference in mod_date and mod_time
 
 - Delete zip on cancel or fail

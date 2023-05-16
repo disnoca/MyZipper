@@ -4,6 +4,7 @@
 #include <windows.h>
 #include <winbase.h>
 #include "file.h"
+#include "compress.h"
 #include "wrapper_functions.h"
 
 #define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
@@ -13,18 +14,6 @@
 
 static bool is_directory(char* path) {
 	return _GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY;
-}
-
-static uint32_t calculate_crc32(unsigned char* data, uint32_t length) {
-	uint32_t crc = 0xFFFFFFFF;
-
-	for (unsigned i = 0; i < length; i++) {
-		crc ^= data[i];
-		for (unsigned j = 0; j < 8; j++)
-			crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
-	}
-
-	return ~crc;
 }
 
 
@@ -97,20 +86,6 @@ static void get_file_children(file* f) {
 	f->children = Realloc(f->children, sizeof(file*) * f->num_children);
 }
 
-static void get_file_data(file* f) {
-	// Get file size
-	FILE* fp = Fopen(f->name, "rb");
-	Fseek(fp, 0L, SEEK_END);
-	f->size = Ftell(fp);
-	rewind(fp);
-
-	f->data = Malloc(f->size);
-
-	// Read file data
-	fread(f->data, f->size, 1, fp);
-	Fclose(fp);
-}
-
 static void get_file_mod_time(file* f) {	// TODO: add time difference
 	HANDLE fileHandle = _CreateFile(f->name);
 
@@ -139,11 +114,8 @@ file* file_create(char* path) {
 
 	if(f->is_directory)
 		get_file_children(f);
-	else {
-		get_file_data(f);		// TODO: lazy data loading
+	else
 		get_file_mod_time(f);
-		f->crc32 = calculate_crc32(f->data, f->size);
-	}
 
     return f;
 }
@@ -152,9 +124,20 @@ void file_destroy(file* f) {
 	if(f->num_children > 0)
 		Free(f->children);
 		
-	if(f->data != NULL)
-		Free(f->data);
+	if(f->compressed_data != NULL)
+		Free(f->compressed_data);
 
 	Free(f->name);
 	Free(f);
+}
+
+void file_compress_and_load_data(file* f, uint16_t compression_method) {
+	switch(compression_method) {
+	case NO_COMPRESSION: no_compression(f); break;
+	}
+}
+
+void file_free_data(file* f) {
+	Free(f->compressed_data);
+	f->compressed_data = NULL;
 }

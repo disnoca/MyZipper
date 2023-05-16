@@ -5,6 +5,7 @@
 #include "zip.h"
 #include "file.h"
 #include "queue.h"
+#include "compress.h"
 #include "wrapper_functions.h"
 
 #define WINDOWS_NTFS_FS 0x0A00
@@ -22,12 +23,12 @@ static local_file_header get_file_header(file* f) {
 	lfh.signature = LOCAL_FILE_HEADER_SIGNATURE;
 	lfh.version = 10;
 	lfh.flags = 0x0000;
-	lfh.compression = 0;
+	lfh.compression = f->compression_method;
 	lfh.mod_time = f->mod_time;
 	lfh.mod_date = f->mod_date;
 	lfh.crc32 = f->crc32;
-	lfh.compressed_size = f->size;
-	lfh.uncompressed_size = f->size;
+	lfh.compressed_size = f->compressed_size;
+	lfh.uncompressed_size = f->uncompressed_size;
 	lfh.file_name_length = f->name_length;
 	lfh.extra_field_length = 0;
 
@@ -41,12 +42,12 @@ static central_directory_file_header get_central_directory_file_header(file* f) 
 	cdfh.version_made_by = WINDOWS_NTFS_FS || 10;
 	cdfh.version_needed_to_extract = 10;
 	cdfh.flags = 0x0000;
-	cdfh.compression = 0;
+	cdfh.compression = f->compression_method;
 	cdfh.mod_time = f->mod_time;
 	cdfh.mod_date = f->mod_date;
 	cdfh.crc32 = f->crc32;
-	cdfh.compressed_size = f->size;
-	cdfh.uncompressed_size = f->size;
+	cdfh.compressed_size = f->compressed_size;
+	cdfh.uncompressed_size = f->uncompressed_size;
 	cdfh.file_name_length = f->name_length;
 	cdfh.extra_field_length = 0;
 	cdfh.file_comment_length = 0;
@@ -91,29 +92,32 @@ static void write_file_to_zip(file* f) {
 	f->local_header_offset = zip_body_size;
 	queue_enqueue(file_queue, f);
 
+	// Compress and load the file's data
+	if(!f->is_directory)
+		file_compress_and_load_data(f, NO_COMPRESSION);
+
 	// Get the file's local file header and write it to the zip
 	local_file_header lfh = get_file_header(f);
 	Fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
 	Fwrite(f->name, f->name_length, 1, zip_file);
 
-	// Write the file's data to the zip if not an empty directory
+	// Write the file's data to the zip and free it
 	if(!f->is_directory) {
-		Fwrite(f->data, f->size, 1, zip_file);
-		Free(f->data);
-		f->data = NULL;		// ???????????????????????????
+		Fwrite(f->compressed_data, f->compressed_size, 1, zip_file);
+		file_free_data(f);
 	}
 
 	// Update zip metadata
 	num_records++;
-	zip_body_size += sizeof(local_file_header) + f->name_length + f->size;
+	zip_body_size += sizeof(local_file_header) + f->name_length + f->uncompressed_size;
 }
 
 void write_central_directory_to_zip() {
 	// Write each file's central directory file header to the zip
 	while(file_queue->size > 0) {
 		file* f = queue_dequeue(file_queue);
-		central_directory_file_header cdfh = get_central_directory_file_header(f);
 
+		central_directory_file_header cdfh = get_central_directory_file_header(f);
 		Fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
 		Fwrite(f->name, f->name_length, 1, zip_file);
 
@@ -140,7 +144,7 @@ int main(int argc, char** argv) {
 	}
 	
 	write_central_directory_to_zip();
-	
+
 	Fclose(zip_file);
 
 	return 0;
