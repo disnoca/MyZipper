@@ -9,9 +9,11 @@
 
 #define WINDOWS_NTFS_FS 0x0A00
 
+static FILE* zip_file;
+static queue* file_queue;
+
 static uint16_t num_records;
 static uint32_t zip_body_size, central_directory_size;
-static queue* file_queue;
 
 
 static local_file_header get_file_header(file* f) {
@@ -71,32 +73,43 @@ static central_directory_record_tail get_central_directory_record_tail() {
 	return cdrt;
 }
 
-static void add_file_to_zip(FILE* zip_file, char* path) {
-	file* f = file_create(path);
+static void write_file_to_zip(file* f) {
+	/*
+	 * Add the directory's children to the zip
+	 * This will recursively add all the files containted in the directory
+	 * Directories are not written to the zip unless they're empty
+	*/
+	if(f->is_directory && f->num_children > 0) {
+		for(unsigned i = 0; i < f->num_children; i++)
+			write_file_to_zip(f->children[i]);
+
+		file_destroy(f);
+		return;
+	}
+
+	// Set the file's local header offset and save it in the queue
 	f->local_header_offset = zip_body_size;
+	queue_enqueue(file_queue, f);
 
+	// Get the file's local file header and write it to the zip
 	local_file_header lfh = get_file_header(f);
-
 	Fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
 	Fwrite(f->name, f->name_length, 1, zip_file);
-	Fwrite(f->data, f->size, 1, zip_file);
 
+	// Write the file's data to the zip if not an empty directory
+	if(!f->is_directory) {
+		Fwrite(f->data, f->size, 1, zip_file);
+		Free(f->data);
+		f->data = NULL;		// ???????????????????????????
+	}
+
+	// Update zip metadata
 	num_records++;
 	zip_body_size += sizeof(local_file_header) + f->name_length + f->size;
-
-	Free(f->data);
-	f->data = NULL;
-	queue_enqueue(file_queue, f);
 }
 
-int main() {
-	FILE* zip_file = Fopen("my_zip.zip", "wb");
-	file_queue = queue_create();
-
-	add_file_to_zip(zip_file, "img.jpg");
-	add_file_to_zip(zip_file, "file.h");
-	add_file_to_zip(zip_file, "ada01-progDinamica.pdf");
-	
+void write_central_directory_to_zip() {
+	// Write each file's central directory file header to the zip
 	while(file_queue->size > 0) {
 		file* f = queue_dequeue(file_queue);
 		central_directory_file_header cdfh = get_central_directory_file_header(f);
@@ -110,8 +123,23 @@ int main() {
 
 	Free(file_queue);
 
+	// Write the central directory record tail to the zip
 	central_directory_record_tail cdrt = get_central_directory_record_tail();
 	Fwrite(&cdrt, sizeof(central_directory_record_tail), 1, zip_file);
+}
+
+int main(int argc, char** argv) {
+	char* zip_file_name = argv[1];
+	zip_file = Fopen(zip_file_name, "wb");
+
+	file_queue = queue_create();
+
+	for(int i = 2; i < argc; i++) {
+		file* f = file_create(argv[i]);
+		write_file_to_zip(f);
+	}
+	
+	write_central_directory_to_zip();
 	
 	Fclose(zip_file);
 

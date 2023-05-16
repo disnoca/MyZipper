@@ -39,15 +39,14 @@ static void get_file_name(file* f, char* path) {
 
 	// If file is a directory and does not have a trailing slash, add one
 	if(f->is_directory && path[f->name_length - 1] != '\\') {
-		f->name_length++;
-		f->name = Malloc(f->name_length);
-		memcpy(f->name, path, f->name_length - 1);
-		f->name[f->name_length - 1] = '\\';
+		f->name = Malloc(f->name_length + 2);
+		memcpy(f->name, path, f->name_length);
+		memcpy(f->name + f->name_length++, "\\", 2);
 	} 
 	// Otherwise, just copy path into file name
 	else {
-		f->name = Malloc(f->name_length);
-		memcpy(f->name, path, f->name_length);
+		f->name = Malloc(f->name_length + 1);
+		memcpy(f->name, path, f->name_length + 1);
 	}
 }
 
@@ -94,8 +93,8 @@ static void get_file_children(file* f) {
     }
 
     _FindClose(hFind);
-
-	Realloc(f->children, sizeof(file) * f->num_children);
+	
+	f->children = Realloc(f->children, sizeof(file*) * f->num_children);
 }
 
 static void get_file_data(file* f) {
@@ -150,9 +149,10 @@ file* file_create(char* path) {
 }
 
 void file_destroy(file* f) {
-	if(f->is_directory)
+	if(f->num_children > 0)
 		Free(f->children);
-	else if(f->data != NULL)
+		
+	if(f->data != NULL)
 		Free(f->data);
 
 	Free(f->name);
