@@ -16,6 +16,84 @@ static bool is_directory(char* path) {
 	return _GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY;
 }
 
+static unsigned char days_in_month(unsigned char month, unsigned char year) {
+	switch(month) {
+		case 1: return 31;
+		case 2: return (year % 4 == 0) ? 29 : 28;
+		case 3: return 31;
+		case 4: return 30;
+		case 5: return 31;
+		case 6: return 30;
+		case 7: return 31;
+		case 8: return 31;
+		case 9: return 30;
+		case 10: return 31;
+		case 11: return 30;
+		case 12: return 31;
+		default: return 0;
+	}
+}
+
+static void add_timezone_difference(file* f) {
+	// Get timezone difference in hours
+	TIME_ZONE_INFORMATION tz_info;
+	int16_t daylight_is_active = GetTimeZoneInformation(&tz_info) == TIME_ZONE_ID_DAYLIGHT;
+	int16_t tz_diff = tz_info.Bias / 60 + daylight_is_active;
+
+	// Convert dos date and time to individual components
+	unsigned char utc_relative_year = f->mod_date >> 9;
+	unsigned char utc_month = (f->mod_date >> 5) & 0x0F;
+	unsigned char utc_day = f->mod_date & 0x1F;
+	signed char utc_hour = f->mod_time >> 11;
+
+	// Add timezone difference to hour
+	utc_hour += tz_diff;
+
+	// Adjust day if hour is out of bounds
+	if(utc_hour < 0) {
+		utc_hour += 24;
+		utc_day--;
+	}
+	else if(utc_hour > 23) {
+		utc_hour -= 24;
+		utc_day++;
+	}
+
+	// Adjust month if day is out of bounds
+	if(utc_day < 1) {
+		utc_month--;
+		if(utc_month < 1) {
+			utc_month += 12;
+			utc_relative_year--;
+		}
+
+		utc_day += days_in_month(utc_month, utc_relative_year + 1980);
+	}
+	else if(utc_day > days_in_month(utc_month, utc_relative_year + 1980)) {
+		utc_month++;
+		if(utc_month > 12) {
+			utc_month -= 12;
+			utc_relative_year++;
+		}
+
+		utc_day -= days_in_month(utc_month, utc_relative_year + 1980);
+	}
+
+	// Adjust year if month is out of bounds
+	if(utc_month < 1) {
+		utc_month += 12;
+		utc_relative_year--;
+	}
+	else if(utc_month > 12) {
+		utc_month -= 12;
+		utc_relative_year++;
+	}
+
+	// Save adjusted date and time
+	f->mod_date = (utc_relative_year << 9) | (utc_month << 5) | utc_day;
+	f->mod_time = (utc_hour << 11) | (f->mod_time & 0x07FF);
+}
+
 
 /* File Helper Functions */
 
@@ -100,6 +178,7 @@ static void get_file_mod_time(file* f) {	// TODO: add time difference
 
 	f->mod_time = lpFatTime;
 	f->mod_date = lpFatDate;
+	add_timezone_difference(f);
 }
 
 
