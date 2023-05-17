@@ -28,5 +28,6 @@ void _FileTimeToDosDateTime(const FILETIME* lpFileTime, LPWORD lpFatDate, LPWORD
 HANDLE _FindFirstFile(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData);
 BOOL _FindNextFile(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData);
 void _FindClose(HANDLE hFindFile);
+void _GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize);
 
 #endif

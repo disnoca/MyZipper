@@ -16,22 +16,29 @@ static uint32_t calculate_crc32(unsigned char* data, uint32_t length) {
 	return ~crc;
 }
 
+static uint64_t file_size32(file* f) {
+	HANDLE fileHandle = _CreateFile(f->name);
+
+	LARGE_INTEGER fileSize;
+	_GetFileSizeEx(fileHandle, &fileSize);
+
+	_CloseHandle(fileHandle);
+
+	return fileSize.u.LowPart;
+}
+
 
 /* Header Implementation */
 
 void no_compression(file* f) {
 	f->compression_method = NO_COMPRESSION;
 
-	// Get file size
-	FILE* fp = Fopen(f->name, "rb");
-	Fseek(fp, 0L, SEEK_END);
-	f->uncompressed_size = Ftell(fp);
+	f->uncompressed_size = file_size32(f);
 	f->compressed_size = f->uncompressed_size;
-	rewind(fp);
-
 	f->compressed_data = Malloc(f->compressed_size);
 
 	// Read file data
+	FILE* fp = Fopen(f->name, "rb");
 	fread(f->compressed_data, f->compressed_size, 1, fp);
 	Fclose(fp);
 	

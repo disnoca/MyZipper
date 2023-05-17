@@ -127,3 +127,8 @@ void _FindClose(HANDLE hFindFile) {
     if(!FindClose(hFindFile))
         exit_with_error("FindClose error: %lu\n", GetLastError());
 }
+
+void _GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize) {
+    if(!GetFileSizeEx(hFile, lpFileSize))
+        exit_with_error("GetFileSizeEx error: %lu\n", GetLastError());
+}
