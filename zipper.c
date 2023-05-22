@@ -30,7 +30,7 @@ static local_file_header get_file_header(file_info* fi) {
 	lfh.compressed_size = fi->compressed_size & 0xFFFFFFFF;
 	lfh.uncompressed_size = fi->uncompressed_size & 0xFFFFFFFF;
 	lfh.file_name_length = fi->name_length;
-	lfh.extra_field_length = 0;
+	lfh.extra_field_length = fi->is_large ? sizeof(uint64_t) : 0;
 
 	return lfh;
 }
@@ -49,7 +49,7 @@ static central_directory_file_header get_central_directory_file_header(file_info
 	cdfh.compressed_size = fi->compressed_size & 0xFFFFFFFF;
 	cdfh.uncompressed_size = fi->uncompressed_size & 0xFFFFFFFF;
 	cdfh.file_name_length = fi->name_length;
-	cdfh.extra_field_length = 0;
+	cdfh.extra_field_length = fi->is_large ? sizeof(uint64_t) : 0;
 	cdfh.file_comment_length = 0;
 	cdfh.disk_number_start = 0;
 	cdfh.internal_file_attributes = 0;
@@ -96,6 +96,8 @@ static void write_file_to_zip(file_info* fi) {
 	local_file_header lfh = get_file_header(fi);
 	Fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
 	Fwrite(fi->name, fi->name_length, 1, zip_file);
+	if(fi->is_large)
+		Fwrite(&fi->uncompressed_size, sizeof(uint64_t), 1, zip_file);
 
 	// Compress and write the file's data to the zip
 	if(!fi->is_directory)
@@ -115,6 +117,8 @@ void write_central_directory_to_zip() {
 		central_directory_file_header cdfh = get_central_directory_file_header(fi);
 		Fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
 		Fwrite(fi->name, fi->name_length, 1, zip_file);
+		if(fi->is_large)
+			Fwrite(&fi->uncompressed_size, sizeof(uint64_t), 1, zip_file);
 
 		central_directory_size += sizeof(central_directory_file_header) + fi->name_length;
 		fi_destroy(fi);
