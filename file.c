@@ -4,7 +4,8 @@
 #include <windows.h>
 #include <winbase.h>
 #include "file.h"
-#include "compress.h"
+#include "crc32.h"
+#include "compression/compression.h"
 #include "wrapper_functions.h"
 
 #define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
@@ -34,17 +35,17 @@ static unsigned char days_in_month(unsigned char month, unsigned char year) {
 	}
 }
 
-static void add_timezone_difference(file* f) {
+static void add_timezone_difference(file_info* fi) {
 	// Get timezone difference in hours
 	TIME_ZONE_INFORMATION tz_info;
 	int16_t daylight_is_active = GetTimeZoneInformation(&tz_info) == TIME_ZONE_ID_DAYLIGHT;
 	int16_t tz_diff = tz_info.Bias / 60 + daylight_is_active;
 
 	// Convert dos date and time to individual components
-	unsigned char utc_relative_year = f->mod_date >> 9;
-	unsigned char utc_month = (f->mod_date >> 5) & 0x0F;
-	unsigned char utc_day = f->mod_date & 0x1F;
-	signed char utc_hour = f->mod_time >> 11;
+	unsigned char utc_relative_year = fi->mod_date >> 9;
+	unsigned char utc_month = (fi->mod_date >> 5) & 0x0F;
+	unsigned char utc_day = fi->mod_date & 0x1F;
+	signed char utc_hour = fi->mod_time >> 11;
 
 	// Add timezone difference to hour
 	utc_hour += tz_diff;
@@ -90,40 +91,61 @@ static void add_timezone_difference(file* f) {
 	}
 
 	// Save adjusted date and time
-	f->mod_date = (utc_relative_year << 9) | (utc_month << 5) | utc_day;
-	f->mod_time = (utc_hour << 11) | (f->mod_time & 0x07FF);
+	fi->mod_date = (utc_relative_year << 9) | (utc_month << 5) | utc_day;
+	fi->mod_time = (utc_hour << 11) | (fi->mod_time & 0x07FF);
 }
 
 
 /* File Helper Functions */
 
-static void get_file_name(file* f, char* path) {
+static void get_file_name(file_info* fi, char* path) {
 	// Cut out preceding dot and slash if in path
 	if(path[0] == '.' && path[1] == '\\')
 		path += 2;
 
-	f->name_length = strlen(path);
+	fi->name_length = strlen(path);
 
 	// If file is a directory and does not have a trailing slash, add one
-	if(f->is_directory && path[f->name_length - 1] != '\\') {
-		f->name = Malloc(f->name_length + 2);
-		memcpy(f->name, path, f->name_length);
-		memcpy(f->name + f->name_length++, "\\", 2);
+	if(fi->is_directory && path[fi->name_length - 1] != '\\') {
+		fi->name = Malloc(fi->name_length + 2);
+		memcpy(fi->name, path, fi->name_length);
+		memcpy(fi->name + fi->name_length++, "\\", 2);
 	} 
 	// Otherwise, just copy path into file name
 	else {
-		f->name = Malloc(f->name_length + 1);
-		memcpy(f->name, path, f->name_length + 1);
+		fi->name = Malloc(fi->name_length + 1);
+		memcpy(fi->name, path, fi->name_length + 1);
 	}
 }
 
-static void get_file_children(file* f) {
+static void get_file_size(file_info* fi) {
+	HANDLE fileHandle = _CreateFile(fi->name);
+
+	LARGE_INTEGER fileSize;
+	_GetFileSizeEx(fileHandle, &fileSize);
+
+	_CloseHandle(fileHandle);
+
+	fi->uncompressed_size = fileSize.QuadPart;
+	fi->is_large = fi->uncompressed_size > 0xFFFFFFFF;
+}
+
+static void get_compression_function_and_size(file_info* fi) {
+	switch(fi->compression_method) {
+		case(NO_COMPRESSION): 
+			fi->compression_func = no_compression; 
+			fi->compressed_size = fi->uncompressed_size;
+			break;
+	}
+}
+
+static void get_file_children(file_info* fi) {
 	WIN32_FIND_DATA fdFile;
 
 	// Append "*" to path to get all files in directory
-	char path[f->name_length + 2];
-	memcpy(path, f->name, f->name_length);
-	memcpy(path + f->name_length, "*", 2);
+	char path[fi->name_length + 2];
+	memcpy(path, fi->name, fi->name_length);
+	memcpy(path + fi->name_length, "*", 2);
 
 	// First two file finds will always return "." and ".."
     HANDLE hFind = _FindFirstFile(path, &fdFile);
@@ -131,20 +153,20 @@ static void get_file_children(file* f) {
 
 	// Allocate memory for found file names
 	unsigned children_array_capacity = DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY;
-	f->children = Malloc(sizeof(file*) * children_array_capacity);
+	fi->children = Malloc(sizeof(file_info*) * children_array_capacity);
 
     while(_FindNextFile(hFind, &fdFile)) {
 		// Allocate more memory for array if necessary
-		if(f->num_children == children_array_capacity) {
+		if(fi->num_children == children_array_capacity) {
 			children_array_capacity *= 2;
-			f->children = Realloc(f->children, sizeof(file*) * children_array_capacity);
+			fi->children = Realloc(fi->children, sizeof(file_info*) * children_array_capacity);
 		}
 
 		// Copy path and found file name into buffer
-		unsigned file_name_length = f->name_length + strlen(fdFile.cFileName) + 1;
+		unsigned file_name_length = fi->name_length + strlen(fdFile.cFileName) + 1;
 		char file_name[file_name_length];
-		memcpy(file_name, f->name, f->name_length);
-		memcpy(file_name + f->name_length, fdFile.cFileName, file_name_length - f->name_length);
+		memcpy(file_name, fi->name, fi->name_length);
+		memcpy(file_name + fi->name_length, fdFile.cFileName, file_name_length - fi->name_length);
 
 		/*
 		 * Create child file.
@@ -153,19 +175,19 @@ static void get_file_children(file* f) {
 		 * it only needs to be manually called once on each of the root folder's children
 		 * to capture all of its internal content.
 		*/
-		file* child = file_create(file_name);
+		file_info* child = fi_create(file_name, fi->compression_method);
 
 		// Save child file
-		f->children[f->num_children++] = child;
+		fi->children[fi->num_children++] = child;
     }
 
     _FindClose(hFind);
 	
-	f->children = Realloc(f->children, sizeof(file*) * f->num_children);
+	fi->children = Realloc(fi->children, sizeof(file_info*) * fi->num_children);
 }
 
-static void get_file_mod_time(file* f) {	// TODO: add time difference
-	HANDLE fileHandle = _CreateFile(f->name);
+static void get_file_mod_time(file_info* fi) {	// TODO: add time difference
+	HANDLE fileHandle = _CreateFile(fi->name);
 
 	// Get file last write time
 	FILETIME lastWriteTime;
@@ -176,47 +198,47 @@ static void get_file_mod_time(file* f) {	// TODO: add time difference
 	WORD lpFatDate, lpFatTime;
 	_FileTimeToDosDateTime(&lastWriteTime, &lpFatDate, &lpFatTime);
 
-	f->mod_time = lpFatTime;
-	f->mod_date = lpFatDate;
-	add_timezone_difference(f);
+	fi->mod_time = lpFatTime;
+	fi->mod_date = lpFatDate;
+	add_timezone_difference(fi);
 }
 
 
 /* Header Implementations */
 
-file* file_create(char* path) {
-	file* f = Calloc(1, sizeof(file));
+file_info* fi_create(char* path, unsigned compression_method) {
+	file_info* fi = Calloc(1, sizeof(file_info));
 
-	f->is_directory = is_directory(path);
+	fi->compression_method = compression_method;
+	fi->is_directory = is_directory(path);
 
-	get_file_name(f, path);
+	get_file_name(fi, path);
 
-	if(f->is_directory)
-		get_file_children(f);
-	else
-		get_file_mod_time(f);
-
-    return f;
-}
-
-void file_destroy(file* f) {
-	if(f->num_children > 0)
-		Free(f->children);
-		
-	if(f->compressed_data != NULL)
-		Free(f->compressed_data);
-
-	Free(f->name);
-	Free(f);
-}
-
-void file_compress_and_load_data(file* f, uint16_t compression_method) {
-	switch(compression_method) {
-	case NO_COMPRESSION: no_compression(f); break;
+	if(fi->is_directory)
+		get_file_children(fi);
+	else {
+		fi->fp = Fopen(fi->name, "rb");
+		get_file_size(fi);
+		get_compression_function_and_size(fi);
+		get_file_mod_time(fi);
+		fi->crc32 = file_crc32(fi->fp);
 	}
+
+    return fi;
 }
 
-void file_free_data(file* f) {
-	Free(f->compressed_data);
-	f->compressed_data = NULL;
+void fi_destroy(file_info* fi) {
+	if(fi->is_directory)
+		Free(fi->children);
+	else
+		Free(fi->fp);
+
+	Free(fi->name);
+	Free(fi);
+}
+
+
+
+void compress_and_write(file_info* fi, FILE* dest) {
+	fi->compression_func(fi->fp, dest);
 }

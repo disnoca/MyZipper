@@ -3,7 +3,7 @@
 
 /* Helper Functions */
 
-static queue_node* queue_node_create(void *data) {
+static queue_node* queue_node_create(void* data) {
 	queue_node* node = Calloc(1, sizeof(queue_node));
 	node->data = data;
 	return node;
@@ -15,7 +15,7 @@ queue* queue_create() {
 	return Calloc(1, sizeof(queue));
 }
 
-void queue_enqueue(queue *q, void *data) {
+void queue_enqueue(queue* q, void* data) {
 	queue_node* node = queue_node_create(data);
 
 	if(q->size == 0)
@@ -27,7 +27,7 @@ void queue_enqueue(queue *q, void *data) {
 	q->size++;
 }
 
-void* queue_dequeue(queue *q) {
+void* queue_dequeue(queue* q) {
 	queue_node* node = q->head;
 	void* data = node->data;
 

@@ -76,6 +76,13 @@ long Ftell(FILE* stream) {
     return offset;
 }
 
+long long Ftelli64(FILE* stream) {
+    long long offset = _ftelli64(stream);
+    if(offset == -1LL)
+        exit_with_error("%s\n", "Ftelli64 error");
+    return offset;
+}
+
 
 
 DWORD _GetFileAttributes(LPCSTR lpFileName) {

@@ -18,6 +18,7 @@ void Fclose(FILE* stream);
 void Fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream);
 void Fseek(FILE* stream, long int offset, int origin);
 long Ftell(FILE* stream);
+long long Ftelli64(FILE* stream);
 
 
 DWORD _GetFileAttributes(LPCSTR lpFileName);
