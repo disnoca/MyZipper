@@ -60,4 +60,16 @@ typedef struct {
 	//char comment[];
 } __attribute__((packed)) central_directory_record_tail;
 
+
+/* Additional Structs */
+
+#define ZIP64_EXTRA_FIELD_HEADER_ID	0x0001
+
+typedef struct {
+	uint16_t header_id;
+	uint16_t data_size;
+	uint64_t uncompressed_size;
+	uint64_t compressed_size;
+} __attribute__((packed)) zip64_extra_field;
+
 #endif

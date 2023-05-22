@@ -8,6 +8,7 @@
 #include "compression/compression.h"
 #include "wrapper_functions.h"
 
+#define ZIP_VERSION 45
 #define WINDOWS_NTFS 0x0A00
 
 static FILE* zip_file;
@@ -21,16 +22,16 @@ static local_file_header get_file_header(file_info* fi) {
 	local_file_header lfh;
 
 	lfh.signature = LOCAL_FILE_HEADER_SIGNATURE;
-	lfh.version = 10;
+	lfh.version = ZIP_VERSION;
 	lfh.flags = 0x0000;
 	lfh.compression = fi->compression_method;
 	lfh.mod_time = fi->mod_time;
 	lfh.mod_date = fi->mod_date;
 	lfh.crc32 = fi->crc32;
-	lfh.compressed_size = fi->compressed_size & 0xFFFFFFFF;
-	lfh.uncompressed_size = fi->uncompressed_size & 0xFFFFFFFF;
+	lfh.compressed_size = fi->is_large ? 0xFFFFFFFF : fi->compressed_size;
+	lfh.uncompressed_size = fi->is_large ? 0xFFFFFFFF : fi->uncompressed_size;
 	lfh.file_name_length = fi->name_length;
-	lfh.extra_field_length = fi->is_large ? sizeof(uint64_t) : 0;
+	lfh.extra_field_length = fi->is_large ? sizeof(zip64_extra_field) : 0;
 
 	return lfh;
 }
@@ -39,17 +40,17 @@ static central_directory_file_header get_central_directory_file_header(file_info
 	central_directory_file_header cdfh;
 
 	cdfh.signature = CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE;
-	cdfh.version_made_by = WINDOWS_NTFS || 10;
-	cdfh.version_needed_to_extract = 10;
+	cdfh.version_made_by = WINDOWS_NTFS || ZIP_VERSION;
+	cdfh.version_needed_to_extract = ZIP_VERSION;
 	cdfh.flags = 0x0000;
 	cdfh.compression = fi->compression_method;
 	cdfh.mod_time = fi->mod_time;
 	cdfh.mod_date = fi->mod_date;
 	cdfh.crc32 = fi->crc32;
-	cdfh.compressed_size = fi->compressed_size & 0xFFFFFFFF;
-	cdfh.uncompressed_size = fi->uncompressed_size & 0xFFFFFFFF;
+	cdfh.compressed_size = fi->is_large ? 0xFFFFFFFF : fi->compressed_size;
+	cdfh.uncompressed_size = fi->is_large ? 0xFFFFFFFF : fi->uncompressed_size;
 	cdfh.file_name_length = fi->name_length;
-	cdfh.extra_field_length = fi->is_large ? sizeof(uint64_t) : 0;
+	cdfh.extra_field_length = fi->is_large ? sizeof(zip64_extra_field) : 0;
 	cdfh.file_comment_length = 0;
 	cdfh.disk_number_start = 0;
 	cdfh.internal_file_attributes = 0;
@@ -74,6 +75,17 @@ static central_directory_record_tail get_central_directory_record_tail() {
 	return cdrt;
 }
 
+static zip64_extra_field get_zip64_extra_field(file_info* fi) {
+	zip64_extra_field z64ef;
+
+	z64ef.header_id = ZIP64_EXTRA_FIELD_HEADER_ID;
+	z64ef.data_size = sizeof(uint64_t) * 2;
+	z64ef.uncompressed_size = fi->uncompressed_size;
+	z64ef.compressed_size = fi->compressed_size;
+
+	return z64ef;
+}
+
 static void write_file_to_zip(file_info* fi) {
 	/*
 	 * Add the directory's children to the zip
@@ -96,8 +108,13 @@ static void write_file_to_zip(file_info* fi) {
 	local_file_header lfh = get_file_header(fi);
 	Fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
 	Fwrite(fi->name, fi->name_length, 1, zip_file);
-	if(fi->is_large)
-		Fwrite(&fi->uncompressed_size, sizeof(uint64_t), 1, zip_file);
+
+	// Write the file's zip64 extra field if it's large
+	if(fi->is_large) {
+		zip64_extra_field z64ef = get_zip64_extra_field(fi);
+		Fwrite(&z64ef, sizeof(zip64_extra_field), 1, zip_file);
+		zip_body_size += sizeof(zip64_extra_field);
+	}
 
 	// Compress and write the file's data to the zip
 	if(!fi->is_directory)
@@ -106,6 +123,7 @@ static void write_file_to_zip(file_info* fi) {
 	// Update zip metadata
 	num_records++;
 	zip_body_size += sizeof(local_file_header) + fi->name_length + fi->uncompressed_size;
+		
 }
 
 void write_central_directory_to_zip() {
@@ -117,10 +135,17 @@ void write_central_directory_to_zip() {
 		central_directory_file_header cdfh = get_central_directory_file_header(fi);
 		Fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
 		Fwrite(fi->name, fi->name_length, 1, zip_file);
-		if(fi->is_large)
-			Fwrite(&fi->uncompressed_size, sizeof(uint64_t), 1, zip_file);
+		
+		// Write the file's zip64 extra field if it's large
+		if(fi->is_large) {
+			zip64_extra_field z64ef = get_zip64_extra_field(fi);
+			Fwrite(&z64ef, sizeof(zip64_extra_field), 1, zip_file);
+			central_directory_size += sizeof(zip64_extra_field);
+		}
 
+		// Update zip metadata
 		central_directory_size += sizeof(central_directory_file_header) + fi->name_length;
+		
 		fi_destroy(fi);
 	}
 
@@ -141,9 +166,9 @@ int main(int argc, char** argv) {
 		file_info* fi = fi_create(argv[i], NO_COMPRESSION);
 		write_file_to_zip(fi);
 	}
-	
+
 	write_central_directory_to_zip();
-	
+
 	Fclose(zip_file);
 
 	return 0;
