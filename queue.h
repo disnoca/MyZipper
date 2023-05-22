@@ -9,8 +9,8 @@ typedef struct {
 } queue;
 
 struct queue_node {
-	void *data;
-	queue_node *next;
+	void* data;
+	queue_node* next;
 };
 
 /**
@@ -26,7 +26,7 @@ queue* queue_create();
  * @param q the queue to add the element to
  * @param data the element to add to the queue
 */
-void queue_enqueue(queue *q, void *data);
+void queue_enqueue(queue* q, void* data);
 
 /**
  * Removes and returns the element at the front of the specified queue.
@@ -34,6 +34,6 @@ void queue_enqueue(queue *q, void *data);
  * @param q the queue to remove the element from
  * @return the element at the front of the specified queue
 */
-void* queue_dequeue(queue *q);
+void* queue_dequeue(queue* q);
 
 #endif

@@ -5,7 +5,8 @@ SOURCES := \
 wrapper_functions.c \
 file.c \
 queue.c \
-compress.c
+crc32.c \
+compression/no_compression/no_compression.c
 
 TARGET = zipper
 
@@ -21,4 +22,4 @@ run: $(TARGET).exe
 	./$(TARGET).exe
 
 clean:
-	rm -f $(SOURCES.c=.o) $(TARGET).exe
+	rm -fi $(SOURCES.c=.o) $(TARGET).exe
