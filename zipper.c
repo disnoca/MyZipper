@@ -8,8 +8,8 @@
 #include "compression/compression.h"
 #include "wrapper_functions.h"
 
-#define ZIP_VERSION 45
-#define WINDOWS_NTFS 0x0A00
+#define ZIP_VERSION  45
+#define WINDOWS_NTFS 0x0A
 
 static FILE* zip_file;
 static queue* file_queue;
@@ -40,7 +40,7 @@ static central_directory_file_header get_central_directory_file_header(file_info
 	central_directory_file_header cdfh;
 
 	cdfh.signature = CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE;
-	cdfh.version_made_by = WINDOWS_NTFS || ZIP_VERSION;
+	cdfh.version_made_by = (WINDOWS_NTFS << 8) | ZIP_VERSION;
 	cdfh.version_needed_to_extract = ZIP_VERSION;
 	cdfh.flags = 0x0000;
 	cdfh.compression = fi->compression_method;
