@@ -221,7 +221,7 @@ file_info* fi_create(char* path, unsigned compression_method) {
 		get_file_size(fi);
 		get_compression_function_and_size(fi);
 		get_file_mod_time(fi);
-		fi->crc32 = file_crc32(fi->fp);
+		fi->crc32 = file_crc32(fi->name, fi->uncompressed_size);
 	}
 
     return fi;
