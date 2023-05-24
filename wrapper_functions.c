@@ -139,3 +139,18 @@ void _GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize) {
     if(!GetFileSizeEx(hFile, lpFileSize))
         exit_with_error("GetFileSizeEx error: %lu\n", GetLastError());
 }
+
+
+HANDLE _CreateThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize, LPTHREAD_START_ROUTINE  lpStartAddress, __drv_aliasesMem LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId) {
+    HANDLE hThread = CreateThread(lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
+    if(hThread == NULL)
+        exit_with_error("CreateThread error: %lu\n", GetLastError());
+    return hThread;
+}
+
+DWORD _WaitForMultipleObjects(DWORD nCount,const HANDLE* lpHandles,BOOL bWaitAll,DWORD dwMilliseconds) {
+    DWORD dwWaitResult = WaitForMultipleObjects(nCount, lpHandles, bWaitAll, dwMilliseconds);
+    if(dwWaitResult == WAIT_FAILED)
+        exit_with_error("WaitForMultipleObjects error: %lu\n", GetLastError());
+    return dwWaitResult;
+}

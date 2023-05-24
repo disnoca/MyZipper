@@ -111,8 +111,8 @@ typedef struct {
 DWORD WINAPI thread_crc32(void* data) {
 	crc32_thread_data* crc32td = (crc32_thread_data*) data;
 
-  	FILE* fp = fopen(crc32td->file_name, "rb");
-	fseek(fp, crc32td->start_byte, SEEK_SET);
+  	FILE* fp = Fopen(crc32td->file_name, "rb");
+	Fseek(fp, crc32td->start_byte, SEEK_SET);
 
 	unsigned char* buffer = Malloc(BUFFER_SIZE);
 	uint64_t batch_size, total_bytes_read = 0;
@@ -154,17 +154,17 @@ uint32_t file_crc32(char* file_name, uint64_t file_size) {
 		if(i == num_threads - 1)
 			threads_data[i].bytes_to_read += remainder;
 
-		threads[i] = CreateThread(NULL, 0, thread_crc32, threads_data + i, 0, NULL);
+		threads[i] = _CreateThread(NULL, 0, thread_crc32, threads_data + i, 0, NULL);
 	}
 
-	WaitForMultipleObjects(num_threads, threads, TRUE, INFINITE);
+	_WaitForMultipleObjects(num_threads, threads, TRUE, INFINITE);
 
 	uint32_t crc32 = threads_data[0].result;
-	CloseHandle(threads[0]);
+	_CloseHandle(threads[0]);
 
 	for(unsigned i = 1; i < num_threads; i++) {
 		crc32 = crc32_combine(crc32, threads_data[i].result, threads_data[i].bytes_to_read);
-		CloseHandle(threads[i]);
+		_CloseHandle(threads[i]);
 	}
 
 	Free(threads_data);
