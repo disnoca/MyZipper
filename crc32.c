@@ -1,23 +1,14 @@
 #include <stdio.h>
 #include <windows.h>
+#include "concurrency.h"
 #include "wrapper_functions.h"
 #include "crc32.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-#define _1MB 1048576
-
 #define REVERSED_POLYNOMIAL 0xEDB88320UL
 
 #define BUFFER_SIZE 4096
-
-/* Helper Functions */
-
-unsigned get_num_cores() {
-	SYSTEM_INFO sysinfo;
-	GetSystemInfo(&sysinfo);
-	return sysinfo.dwNumberOfProcessors;
-}
 
 
 /* 
@@ -139,7 +130,7 @@ DWORD WINAPI thread_crc32(void* data) {
 }
 
 uint32_t file_crc32(char* file_name, uint64_t file_size) {
-	unsigned num_threads = file_size > 	_1MB ? get_num_cores() : 1;
+	unsigned num_threads = file_size > MIN_FILE_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
 
 	crc32_thread_data* threads_data = Malloc(num_threads * sizeof(crc32_thread_data));
 	HANDLE* threads = Malloc(num_threads * sizeof(HANDLE));

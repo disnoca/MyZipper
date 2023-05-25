@@ -119,7 +119,7 @@ static void get_file_name(file_info* fi, char* path) {
 }
 
 static void get_file_size(file_info* fi) {
-	HANDLE fileHandle = _CreateFile(fi->name);
+	HANDLE fileHandle = _CreateFileA(fi->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	LARGE_INTEGER fileSize;
 	_GetFileSizeEx(fileHandle, &fileSize);
@@ -187,7 +187,7 @@ static void get_file_children(file_info* fi) {
 }
 
 static void get_file_mod_time(file_info* fi) {	// TODO: add time difference
-	HANDLE fileHandle = _CreateFile(fi->name);
+	HANDLE fileHandle = _CreateFileA(fi->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	// Get file last write time
 	FILETIME lastWriteTime;

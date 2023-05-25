@@ -6,6 +6,7 @@ wrapper_functions.c \
 file.c \
 queue.c \
 crc32.c \
+concurrency.c \
 compression/no_compression/no_compression.c
 
 TARGET = zipper

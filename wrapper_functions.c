@@ -84,6 +84,40 @@ long long Ftelli64(FILE* stream) {
 }
 
 
+HANDLE _CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+    HANDLE fileHandle = CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    if(fileHandle == INVALID_HANDLE_VALUE)
+        exit_with_error("CreateFileA error: %lu\n", GetLastError());
+    return fileHandle;
+}
+
+void _CloseHandle(HANDLE hObject) {
+    if(!CloseHandle(hObject))
+        exit_with_error("CloseHandle error: %lu\n", GetLastError());
+}
+
+BOOL _ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped) {
+    if(!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped)) {
+        if(GetLastError() != ERROR_HANDLE_EOF)
+            exit_with_error("ReadFile error: %lu\n", GetLastError());
+        return FALSE;
+    }
+    return TRUE;
+}
+
+BOOL _WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped) {
+    if(!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped))
+        exit_with_error("WriteFile error: %lu\n", GetLastError());
+    return TRUE;
+}
+
+DWORD _SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod) {
+    DWORD dwOffset = SetFilePointer(hFile, lDistanceToMove, lpDistanceToMoveHigh, dwMoveMethod);
+    if(dwOffset == INVALID_SET_FILE_POINTER)
+        exit_with_error("SetFilePointer error: %lu\n", GetLastError());
+    return dwOffset;
+}
+
 
 DWORD _GetFileAttributes(LPCSTR lpFileName) {
     DWORD dwAttrib = GetFileAttributes(lpFileName);
@@ -102,11 +136,6 @@ HANDLE _CreateFile(LPCSTR lpFileName) {
 void _GetFileTime(HANDLE hFile, LPFILETIME lpCreationTime, LPFILETIME lpLastAccessTime, LPFILETIME lpLastWriteTime) {
     if(!GetFileTime(hFile, lpCreationTime, lpLastAccessTime, lpLastWriteTime))
         exit_with_error("GetFileTime error: %lu\n", GetLastError());
-}
-
-void _CloseHandle(HANDLE hObject) {
-    if(!CloseHandle(hObject))
-        exit_with_error("CloseHandle error: %lu\n", GetLastError());
 }
 
 void _FileTimeToDosDateTime(const FILETIME* lpFileTime, LPWORD lpFatDate, LPWORD lpFatTime) {
