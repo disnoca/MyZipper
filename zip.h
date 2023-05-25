@@ -1,5 +1,5 @@
-#ifndef _ZIP
-#define _ZIP
+#ifndef _ZIP_H
+#define _ZIP_H
 
 #include <stdint.h>
 

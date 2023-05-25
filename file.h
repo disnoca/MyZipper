@@ -1,5 +1,5 @@
-#ifndef MYFILE
-#define MYFILE
+#ifndef _FILE_H
+#define _FILE_H
 
 #include <stdint.h>
 #include <stdbool.h>
