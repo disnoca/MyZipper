@@ -105,10 +105,9 @@ BOOL _ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWOR
     return TRUE;
 }
 
-BOOL _WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped) {
+void _WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped) {
     if(!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped))
         exit_with_error("WriteFile error: %lu\n", GetLastError());
-    return TRUE;
 }
 
 DWORD _SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod) {
@@ -126,22 +125,22 @@ DWORD _GetFileAttributes(LPCSTR lpFileName) {
     return dwAttrib;
 }
 
-HANDLE _CreateFile(LPCSTR lpFileName) {
-    HANDLE fileHandle = CreateFile(lpFileName, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if(fileHandle == INVALID_HANDLE_VALUE)
-        exit_with_error("CreateFile error: %lu\n", GetLastError());
-    return fileHandle;
-}
 
 void _GetFileTime(HANDLE hFile, LPFILETIME lpCreationTime, LPFILETIME lpLastAccessTime, LPFILETIME lpLastWriteTime) {
     if(!GetFileTime(hFile, lpCreationTime, lpLastAccessTime, lpLastWriteTime))
         exit_with_error("GetFileTime error: %lu\n", GetLastError());
 }
 
-void _FileTimeToDosDateTime(const FILETIME* lpFileTime, LPWORD lpFatDate, LPWORD lpFatTime) {
-    if(!FileTimeToDosDateTime(lpFileTime, lpFatDate, lpFatTime))
-        exit_with_error("FileTimeToDosDateTime error: %lu\n", GetLastError());
+void _FileTimeToSystemTime(const FILETIME* lpFileTime, LPSYSTEMTIME lpSystemTime) {
+    if(!FileTimeToSystemTime(lpFileTime, lpSystemTime))
+        exit_with_error("FileTimeToSystemTime error: %lu\n", GetLastError());
 }
+
+void _SystemTimeToTzSpecificLocalTime(const TIME_ZONE_INFORMATION* lpTimeZoneInformation, const SYSTEMTIME* lpUniversalTime, LPSYSTEMTIME lpLocalTime) {
+    if(!SystemTimeToTzSpecificLocalTime(lpTimeZoneInformation, lpUniversalTime, lpLocalTime))
+        exit_with_error("SystemTimeToTzSpecificLocalTime error: %lu\n", GetLastError());
+}
+
 
 HANDLE _FindFirstFile(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData) {
     HANDLE hFind = FindFirstFile(lpFileName, lpFindFileData);
@@ -163,6 +162,7 @@ void _FindClose(HANDLE hFindFile) {
     if(!FindClose(hFindFile))
         exit_with_error("FindClose error: %lu\n", GetLastError());
 }
+
 
 void _GetFileSizeEx(HANDLE hFile, PLARGE_INTEGER lpFileSize) {
     if(!GetFileSizeEx(hFile, lpFileSize))
