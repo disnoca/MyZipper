@@ -23,4 +23,4 @@ run: $(TARGET).exe
 	./$(TARGET).exe
 
 clean:
-	rm -fi $(SOURCES.c=.o) $(TARGET).exe
+	rm -f $(SOURCES.c=.o) $(TARGET).exe
