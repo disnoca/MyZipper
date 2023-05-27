@@ -1,8 +1,5 @@
 #include <stdbool.h>
-#include <stdio.h>
-#include <fileapi.h>
 #include <windows.h>
-#include <winbase.h>
 #include "file.h"
 #include "crc32.h"
 #include "compression/compression.h"
@@ -134,7 +131,7 @@ file* file_create(char* path, unsigned compression_method) {
 	if(f->is_directory)
 		get_file_children(f);
 	else {
-		f->fp = Fopen(f->name, "rb");
+		f->fh = _CreateFileA(f->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		get_file_size(f);
 		get_compression_function_and_size(f);
 		get_file_mod_time(f);
@@ -148,7 +145,7 @@ void file_destroy(file* f) {
 	if(f->is_directory)
 		Free(f->children);
 	else
-		Free(f->fp);
+		_CloseHandle(f->fh);
 
 	Free(f->name);
 	Free(f);
@@ -156,6 +153,6 @@ void file_destroy(file* f) {
 
 
 
-void compress_and_write(file* f, FILE* dest) {
-	f->compression_func(f->fp, dest);
+void compress_and_write(file* f, HANDLE dest) {
+	f->compression_func(f->fh, dest);
 }

@@ -44,46 +44,6 @@ void Free(void* ptr) {
 }
 
 
-FILE* Fopen(const char* filename, const char* mode) {
-    FILE* fp = fopen(filename, mode);
-    if(fp == NULL)
-        exit_with_error("Fopen error: %s\n", filename);
-    return fp;
-}
-
-void Fclose(FILE* stream) {
-    if(fclose(stream) == EOF)
-        exit_with_error("%s\n", "Fclose error");
-}
-
-void Fwrite(const void* ptr, size_t size, size_t nmemb, FILE* stream) {
-    if(size == 0 || nmemb == 0)
-        return;
-
-    if(fwrite(ptr, size, nmemb, stream) != nmemb)
-        exit_with_error("%s\n", "Fwrite error");
-}
-
-void Fseek(FILE* stream, long int offset, int origin) {
-    if(fseek(stream, offset, origin) != 0)
-        exit_with_error("%s\n", "Fseek error");
-}
-
-long Ftell(FILE* stream) {
-    long offset = ftell(stream);
-    if(offset == -1L)
-        exit_with_error("%s\n", "Ftell error");
-    return offset;
-}
-
-long long Ftelli64(FILE* stream) {
-    long long offset = _ftelli64(stream);
-    if(offset == -1LL)
-        exit_with_error("%s\n", "Ftelli64 error");
-    return offset;
-}
-
-
 HANDLE _CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
     HANDLE fileHandle = CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
     if(fileHandle == INVALID_HANDLE_VALUE)
@@ -110,11 +70,14 @@ void _WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPD
         exit_with_error("WriteFile error: %lu\n", GetLastError());
 }
 
-DWORD _SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveHigh, DWORD dwMoveMethod) {
-    DWORD dwOffset = SetFilePointer(hFile, lDistanceToMove, lpDistanceToMoveHigh, dwMoveMethod);
-    if(dwOffset == INVALID_SET_FILE_POINTER)
-        exit_with_error("SetFilePointer error: %lu\n", GetLastError());
-    return dwOffset;
+void _SetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove, PLARGE_INTEGER lpNewFilePointer, DWORD dwMoveMethod) {
+    if(!SetFilePointerEx(hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod))
+        exit_with_error("SetFilePointerEx error: %lu\n", GetLastError());
+}
+
+void _Rewind(HANDLE hFile) {
+    if(SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
+        exit_with_error("Rewind error: %lu\n", GetLastError());
 }
 
 

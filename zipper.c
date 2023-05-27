@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <windows.h>
 #include "zip.h"
 #include "file.h"
 #include "queue.h"
@@ -11,7 +11,7 @@
 #define ZIP_VERSION  45
 #define WINDOWS_NTFS 0x0A
 
-static FILE* zip_file;
+static HANDLE ziph;
 static queue* file_queue;
 
 static uint16_t num_records;
@@ -106,19 +106,19 @@ static void write_file_to_zip(file* f) {
 
 	// Get the file's local file header and write it to the zip
 	local_file_header lfh = get_file_header(f);
-	Fwrite(&lfh, sizeof(local_file_header), 1, zip_file);
-	Fwrite(f->name, f->name_length, 1, zip_file);
+	_WriteFile(ziph, &lfh, sizeof(local_file_header), NULL, NULL);
+	_WriteFile(ziph, f->name, f->name_length, NULL, NULL);
 
 	// Write the file's zip64 extra field if it's large
 	if(f->is_large) {
 		zip64_extra_field z64ef = get_zip64_extra_field(f);
-		Fwrite(&z64ef, sizeof(zip64_extra_field), 1, zip_file);
+		_WriteFile(ziph, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
 		zip_body_size += sizeof(zip64_extra_field);
 	}
 
 	// Compress and write the file's data to the zip
 	if(!f->is_directory)
-		compress_and_write(f, zip_file);
+		compress_and_write(f, ziph);
 
 	// Update zip metadata
 	num_records++;
@@ -133,13 +133,13 @@ void write_central_directory_to_zip() {
 
 		// Get the file's central directory file header and write it to the zip
 		central_directory_file_header cdfh = get_central_directory_file_header(f);
-		Fwrite(&cdfh, sizeof(central_directory_file_header), 1, zip_file);
-		Fwrite(f->name, f->name_length, 1, zip_file);
+		_WriteFile(ziph, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
+		_WriteFile(ziph, f->name, f->name_length, NULL, NULL);
 		
 		// Write the file's zip64 extra field if it's large
 		if(f->is_large) {
 			zip64_extra_field z64ef = get_zip64_extra_field(f);
-			Fwrite(&z64ef, sizeof(zip64_extra_field), 1, zip_file);
+			_WriteFile(ziph, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
 			central_directory_size += sizeof(zip64_extra_field);
 		}
 
@@ -153,12 +153,12 @@ void write_central_directory_to_zip() {
 
 	// Write the central directory record tail to the zip
 	central_directory_record_tail cdrt = get_central_directory_record_tail();
-	Fwrite(&cdrt, sizeof(central_directory_record_tail), 1, zip_file);
+	_WriteFile(ziph, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
 }
 
 int main(int argc, char** argv) {
 	char* zip_file_name = argv[1];
-	zip_file = Fopen(zip_file_name, "wb");
+	ziph = _CreateFileA(zip_file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	file_queue = queue_create();
 
@@ -169,7 +169,7 @@ int main(int argc, char** argv) {
 
 	write_central_directory_to_zip();
 
-	Fclose(zip_file);
+	_CloseHandle(ziph);
 
 	return 0;
 }

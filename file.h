@@ -1,9 +1,9 @@
 #ifndef _FILE_H
 #define _FILE_H
 
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <windows.h>
 
 typedef struct file file;
 
@@ -11,7 +11,7 @@ struct file {
 	bool is_directory;
 	unsigned num_children;
 	file** children;
-	FILE* fp;
+	HANDLE fh;
 	char* name;
 	uint16_t name_length;
 	bool is_large;
@@ -20,7 +20,7 @@ struct file {
 	uint16_t mod_time, mod_date;
 	uint32_t crc32;
 	uint32_t local_header_offset;
-	void (*compression_func)(FILE* origin, FILE* dest);
+	void (*compression_func)(HANDLE origin, HANDLE dest);
 };
 
 /**
@@ -43,8 +43,8 @@ void file_destroy(file* f);
  * Compresses and writes the file specified by the file struct to the destination file.
  * 
  * @param f the file struct of the file to compress the data from
- * @param dest the file to write the compressed data to
+ * @param dest_name the path to the file to write the compressed data to
 */
-void compress_and_write(file* f, FILE* dest);
+void compress_and_write(file* f, HANDLE dest);
 
 #endif

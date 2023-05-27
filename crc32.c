@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <windows.h>
 #include "concurrency.h"
 #include "wrapper_functions.h"
@@ -102,11 +101,12 @@ typedef struct {
 DWORD WINAPI thread_crc32(void* data) {
 	crc32_thread_data* crc32td = (crc32_thread_data*) data;
 
-  	FILE* fp = Fopen(crc32td->file_name, "rb");
-	Fseek(fp, crc32td->start_byte, SEEK_SET);
+  	HANDLE fh = _CreateFileA(crc32td->file_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	_SetFilePointerEx(fh, (LARGE_INTEGER) {.QuadPart = crc32td->start_byte}, NULL, FILE_BEGIN);
 
 	unsigned char* buffer = Malloc(BUFFER_SIZE);
-	uint64_t batch_size, total_bytes_read = 0;
+	DWORD batch_size;
+    uint64_t total_bytes_read = 0;
 
 	uint32_t crc = 0xFFFFFFFF;
 
@@ -114,18 +114,18 @@ DWORD WINAPI thread_crc32(void* data) {
 		batch_size = MIN(BUFFER_SIZE, crc32td->bytes_to_read - total_bytes_read);
 		total_bytes_read += batch_size;
 
-		fread(buffer, 1, batch_size, fp);
-		for(unsigned i = 0; i < batch_size; i++) {
+        _ReadFile(fh, buffer, batch_size, NULL, NULL);
+		for(DWORD i = 0; i < batch_size; i++) {
 			crc ^= buffer[i];
-			for(unsigned j = 0; j < 8; j++)
+			for(unsigned char j = 0; j < 8; j++)
 				crc = (crc >> 1) ^ (REVERSED_POLYNOMIAL & -(crc & 1));
 		}
 	}
 
 	crc32td->result = ~crc;
 
+	_CloseHandle(fh);
 	Free(buffer);
-	Fclose(fp);
   	return 0;
 }
 

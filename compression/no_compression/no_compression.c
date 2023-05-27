@@ -1,16 +1,15 @@
-#include <stdio.h>
 #include "../../wrapper_functions.h"
 #include "../compression.h"
 
 #define BUFFER_SIZE 4096
 
-void no_compression(FILE* origin, FILE* dest) {
-	rewind(origin);
+void no_compression(HANDLE origin, HANDLE dest) {
+	_Rewind(origin);
 	unsigned char* buffer = Malloc(BUFFER_SIZE);
-	unsigned bytes_read;
+	DWORD bytes_read;
 
-	while((bytes_read = fread(buffer, 1, BUFFER_SIZE, origin)) > 0)
-		Fwrite(buffer, 1, bytes_read, dest);
+	while(_ReadFile(origin, buffer, BUFFER_SIZE, &bytes_read, NULL) && bytes_read > 0)
+		_WriteFile(dest, buffer, bytes_read, NULL, NULL);
 
-	rewind(origin);
+	_Rewind(origin);
 }
