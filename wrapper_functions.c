@@ -58,7 +58,7 @@ void _CloseHandle(HANDLE hObject) {
 
 BOOL _ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped) {
     if(!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped)) {
-        if(GetLastError() != ERROR_HANDLE_EOF)
+        if(GetLastError() != ERROR_IO_PENDING)
             exit_with_error("ReadFile error: %lu\n", GetLastError());
         return FALSE;
     }
@@ -67,7 +67,8 @@ BOOL _ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWOR
 
 void _WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPDWORD lpNumberOfBytesWritten, LPOVERLAPPED lpOverlapped) {
     if(!WriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped))
-        exit_with_error("WriteFile error: %lu\n", GetLastError());
+        if(GetLastError() != ERROR_IO_PENDING)
+            exit_with_error("WriteFile error: %lu\n", GetLastError());
 }
 
 void _SetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove, PLARGE_INTEGER lpNewFilePointer, DWORD dwMoveMethod) {
@@ -78,6 +79,11 @@ void _SetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove, PLARGE_INTE
 void _Rewind(HANDLE hFile) {
     if(SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
         exit_with_error("Rewind error: %lu\n", GetLastError());
+}
+
+void _GetOverlappedResult(HANDLE hFile, LPOVERLAPPED lpOverlapped, LPDWORD lpNumberOfBytesTransferred, BOOL bWait) {
+    if(!GetOverlappedResult(hFile, lpOverlapped, lpNumberOfBytesTransferred, bWait))
+        exit_with_error("GetOverlappedResult error: %lu\n", GetLastError());
 }
 
 

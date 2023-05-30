@@ -20,7 +20,7 @@ struct file {
 	uint16_t mod_time, mod_date;
 	uint32_t crc32;
 	uint32_t local_header_offset;
-	void (*compression_func)(HANDLE origin, HANDLE dest);
+	void (*compression_func)(char* origin_name, char* dest_name, uint64_t file_size, uint64_t dest_file_offset);
 };
 
 /**
@@ -44,7 +44,8 @@ void file_destroy(file* f);
  * 
  * @param f the file struct of the file to compress the data from
  * @param dest_name the path to the file to write the compressed data to
+ * @param dest_offset the offset of the file to write the compressed data to
 */
-void compress_and_write(file* f, HANDLE dest);
+void compress_and_write(file* f, char* dest_name, uint64_t dest_offset);
 
 #endif

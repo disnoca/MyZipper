@@ -153,6 +153,6 @@ void file_destroy(file* f) {
 
 
 
-void compress_and_write(file* f, HANDLE dest) {
-	f->compression_func(f->fh, dest);
+void compress_and_write(file* f, char* dest_name, uint64_t dest_offset) {
+	f->compression_func(f->name, dest_name, f->uncompressed_size, dest_offset);
 }

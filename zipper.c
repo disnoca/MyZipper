@@ -11,6 +11,7 @@
 #define ZIP_VERSION  45
 #define WINDOWS_NTFS 0x0A
 
+static char* zip_file_name;
 static HANDLE ziph;
 static queue* file_queue;
 
@@ -116,14 +117,16 @@ static void write_file_to_zip(file* f) {
 		zip_body_size += sizeof(zip64_extra_field);
 	}
 
-	// Compress and write the file's data to the zip
-	if(!f->is_directory)
-		compress_and_write(f, ziph);
+	zip_body_size += sizeof(local_file_header) + f->name_length;
 
-	// Update zip metadata
+	// Compress and write the file's data to the zip
+	if(!f->is_directory) {
+		compress_and_write(f, zip_file_name, zip_body_size);
+		_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = f->compressed_size}, NULL, FILE_CURRENT);
+		zip_body_size += f->compressed_size;
+	}
+
 	num_records++;
-	zip_body_size += sizeof(local_file_header) + f->name_length + f->uncompressed_size;
-		
 }
 
 void write_central_directory_to_zip() {
@@ -157,8 +160,8 @@ void write_central_directory_to_zip() {
 }
 
 int main(int argc, char** argv) {
-	char* zip_file_name = argv[1];
-	ziph = _CreateFileA(zip_file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	zip_file_name = argv[1];
+	ziph = _CreateFileA(zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	file_queue = queue_create();
 

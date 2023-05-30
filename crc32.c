@@ -3,8 +3,6 @@
 #include "wrapper_functions.h"
 #include "crc32.h"
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-
 #define REVERSED_POLYNOMIAL 0xEDB88320UL
 
 #define BUFFER_SIZE 4096
@@ -89,7 +87,7 @@ static uint32_t crc32_combine(uint32_t crc1, uint32_t crc2, uint64_t len2){
 }
 
 
-/* Paralel CRC32 calculation */
+/* Parallel CRC32 reading */
 
 typedef struct {
 	char* file_name;
@@ -130,7 +128,7 @@ DWORD WINAPI thread_crc32(void* data) {
 }
 
 uint32_t file_crc32(char* file_name, uint64_t file_size) {
-	unsigned num_threads = file_size > MIN_FILE_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
+	unsigned num_threads = file_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
 
 	crc32_thread_data* threads_data = Malloc(num_threads * sizeof(crc32_thread_data));
 	HANDLE* threads = Malloc(num_threads * sizeof(HANDLE));
