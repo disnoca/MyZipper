@@ -49,8 +49,7 @@ static void get_file_size(file* f) {
 static void get_compression_function_and_size(file* f) {
 	switch(f->compression_method) {
 		case(NO_COMPRESSION): 
-			f->compression_func = no_compression; 
-			f->compressed_size = f->uncompressed_size;
+			f->compression_func = no_compression;
 			break;
 	}
 }
@@ -135,7 +134,6 @@ file* file_create(char* path, unsigned compression_method) {
 		get_file_size(f);
 		get_compression_function_and_size(f);
 		get_file_mod_time(f);
-		f->crc32 = file_crc32(f->name, f->uncompressed_size);
 	}
 
     return f;
@@ -151,8 +149,6 @@ void file_destroy(file* f) {
 	Free(f);
 }
 
-
-
 void compress_and_write(file* f, char* dest_name, uint64_t dest_offset) {
-	f->compression_func(f->name, dest_name, f->uncompressed_size, dest_offset);
+	f->compression_func(f, dest_name, dest_offset);
 }

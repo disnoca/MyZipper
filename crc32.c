@@ -3,11 +3,6 @@
 #include "wrapper_functions.h"
 #include "crc32.h"
 
-#define REVERSED_POLYNOMIAL 0xEDB88320UL
-
-#define BUFFER_SIZE 4096
-
-
 /* 
  * The following section is taken from the zlib library.
  * CRC32 parts combination
@@ -35,7 +30,7 @@ static void gf2_matrix_square(unsigned long* square, unsigned long* mat) {
         square[n] = gf2_matrix_times(mat, mat[n]);
 }
 
-static uint32_t crc32_combine(uint32_t crc1, uint32_t crc2, uint64_t len2){
+uint32_t crc32_combine(uint32_t crc1, uint32_t crc2, uint64_t len2){
     int n;
     unsigned long row;
     unsigned long even[GF2_DIM];    /* even-power-of-two zeros operator */
@@ -46,7 +41,7 @@ static uint32_t crc32_combine(uint32_t crc1, uint32_t crc2, uint64_t len2){
         return crc1;
 
     /* put operator for one zero bit in odd */
-    odd[0] = REVERSED_POLYNOMIAL;          /* CRC-32 polynomial */
+    odd[0] = CRC32_REVERSED_POLYNOMIAL;          /* CRC-32 polynomial */
     row = 1;
     for (n = 1; n < GF2_DIM; n++) {
         odd[n] = row;
@@ -84,79 +79,4 @@ static uint32_t crc32_combine(uint32_t crc1, uint32_t crc2, uint64_t len2){
     /* return combined crc */
     crc1 ^= crc2;
     return crc1;
-}
-
-
-/* Parallel CRC32 reading */
-
-typedef struct {
-	char* file_name;
-	uint64_t start_byte;
-	uint64_t bytes_to_read;
-	uint32_t result;
-} crc32_thread_data;
-
-DWORD WINAPI thread_crc32(void* data) {
-	crc32_thread_data* crc32td = (crc32_thread_data*) data;
-
-  	HANDLE fh = _CreateFileA(crc32td->file_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	_SetFilePointerEx(fh, (LARGE_INTEGER) {.QuadPart = crc32td->start_byte}, NULL, FILE_BEGIN);
-
-	unsigned char* buffer = Malloc(BUFFER_SIZE);
-	DWORD batch_size;
-    uint64_t total_bytes_read = 0;
-
-	uint32_t crc = 0xFFFFFFFF;
-
-	while(total_bytes_read < crc32td->bytes_to_read) {
-		batch_size = MIN(BUFFER_SIZE, crc32td->bytes_to_read - total_bytes_read);
-		total_bytes_read += batch_size;
-
-        _ReadFile(fh, buffer, batch_size, NULL, NULL);
-		for(DWORD i = 0; i < batch_size; i++) {
-			crc ^= buffer[i];
-			for(unsigned char j = 0; j < 8; j++)
-				crc = (crc >> 1) ^ (REVERSED_POLYNOMIAL & -(crc & 1));
-		}
-	}
-
-	crc32td->result = ~crc;
-
-	_CloseHandle(fh);
-	Free(buffer);
-  	return 0;
-}
-
-uint32_t file_crc32(char* file_name, uint64_t file_size) {
-	unsigned num_threads = file_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
-
-	crc32_thread_data* threads_data = Malloc(num_threads * sizeof(crc32_thread_data));
-	HANDLE* threads = Malloc(num_threads * sizeof(HANDLE));
-
-	uint64_t bytes_per_thread = file_size / num_threads;
-	unsigned remainder = file_size % num_threads;
-
-	for(unsigned i = 0; i < num_threads; i++) {
-		threads_data[i].file_name = file_name;
-		threads_data[i].start_byte = bytes_per_thread * i;
-		threads_data[i].bytes_to_read = bytes_per_thread;
-		if(i == num_threads - 1)
-			threads_data[i].bytes_to_read += remainder;
-
-		threads[i] = _CreateThread(NULL, 0, thread_crc32, threads_data + i, 0, NULL);
-	}
-
-	_WaitForMultipleObjects(num_threads, threads, TRUE, INFINITE);
-
-	uint32_t crc32 = threads_data[0].result;
-	_CloseHandle(threads[0]);
-
-	for(unsigned i = 1; i < num_threads; i++) {
-		crc32 = crc32_combine(crc32, threads_data[i].result, threads_data[i].bytes_to_read);
-		_CloseHandle(threads[i]);
-	}
-
-	Free(threads_data);
-	Free(threads);
-	return crc32;
 }

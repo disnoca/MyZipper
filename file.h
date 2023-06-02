@@ -20,7 +20,7 @@ struct file {
 	uint16_t mod_time, mod_date;
 	uint32_t crc32;
 	uint32_t local_header_offset;
-	void (*compression_func)(char* origin_name, char* dest_name, uint64_t file_size, uint64_t dest_file_offset);
+	void (*compression_func)(file* f, char* dest_name, uint64_t dest_file_offset);
 };
 
 /**

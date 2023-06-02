@@ -16,7 +16,7 @@ static HANDLE ziph;
 static queue* file_queue;
 
 static uint16_t num_records;
-static uint32_t zip_body_size, central_directory_size;
+static uint64_t zip_body_size, central_directory_size;
 
 
 static local_file_header get_file_header(file* f) {
@@ -28,8 +28,8 @@ static local_file_header get_file_header(file* f) {
 	lfh.compression = f->compression_method;
 	lfh.mod_time = f->mod_time;
 	lfh.mod_date = f->mod_date;
-	lfh.crc32 = f->crc32;
-	lfh.compressed_size = f->is_large ? 0xFFFFFFFF : f->compressed_size;
+	lfh.crc32 = 0;
+	lfh.compressed_size = 0;
 	lfh.uncompressed_size = f->is_large ? 0xFFFFFFFF : f->uncompressed_size;
 	lfh.file_name_length = f->name_length;
 	lfh.extra_field_length = f->is_large ? sizeof(zip64_extra_field) : 0;
@@ -82,7 +82,7 @@ static zip64_extra_field get_zip64_extra_field(file* f) {
 	z64ef.header_id = ZIP64_EXTRA_FIELD_HEADER_ID;
 	z64ef.data_size = sizeof(uint64_t) * 2;
 	z64ef.uncompressed_size = f->uncompressed_size;
-	z64ef.compressed_size = f->compressed_size;
+	z64ef.compressed_size = 0;
 
 	return z64ef;
 }
@@ -105,10 +105,14 @@ static void write_file_to_zip(file* f) {
 	f->local_header_offset = zip_body_size;
 	queue_enqueue(file_queue, f);
 
+	uint64_t local_file_header_crc32_offset = zip_body_size + LOCAL_FILE_HEADER_CRC32_OFFSET;
+
 	// Get the file's local file header and write it to the zip
 	local_file_header lfh = get_file_header(f);
 	_WriteFile(ziph, &lfh, sizeof(local_file_header), NULL, NULL);
 	_WriteFile(ziph, f->name, f->name_length, NULL, NULL);
+
+	zip_body_size += sizeof(local_file_header) + f->name_length;
 
 	// Write the file's zip64 extra field if it's large
 	if(f->is_large) {
@@ -117,13 +121,25 @@ static void write_file_to_zip(file* f) {
 		zip_body_size += sizeof(zip64_extra_field);
 	}
 
-	zip_body_size += sizeof(local_file_header) + f->name_length;
-
-	// Compress and write the file's data to the zip
 	if(!f->is_directory) {
+		// Compress and write the file's data to the zip
 		compress_and_write(f, zip_file_name, zip_body_size);
-		_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = f->compressed_size}, NULL, FILE_CURRENT);
+
+		// Set the file pointer to the local file header's CRC32 and compressed size fields and update them
+		_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = local_file_header_crc32_offset}, NULL, FILE_BEGIN);
+		uint32_t compressed_file_size = f->is_large ? 0xFFFFFFFF : f->compressed_size;
+		_WriteFile(ziph, &f->crc32, sizeof(uint32_t), NULL, NULL);
+		_WriteFile(ziph, &compressed_file_size, sizeof(uint32_t), NULL, NULL);
+
+		if(f->is_large) {
+			// Set the file pointer to the local file header's uncompressed size field and update it
+			_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = zip_body_size - ZIP64_EXTRA_FIELD_COMPRESSED_SIZE_OFFSET_FROM_END}, NULL, FILE_BEGIN);
+			_WriteFile(ziph, &f->compressed_size, sizeof(uint64_t), NULL, NULL);
+		}
+
+		// Restore the file pointer to the end of the written data
 		zip_body_size += f->compressed_size;
+		_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = zip_body_size}, NULL, FILE_BEGIN);
 	}
 
 	num_records++;
@@ -138,6 +154,8 @@ void write_central_directory_to_zip() {
 		central_directory_file_header cdfh = get_central_directory_file_header(f);
 		_WriteFile(ziph, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
 		_WriteFile(ziph, f->name, f->name_length, NULL, NULL);
+
+		central_directory_size += sizeof(central_directory_file_header) + f->name_length;
 		
 		// Write the file's zip64 extra field if it's large
 		if(f->is_large) {
@@ -145,9 +163,6 @@ void write_central_directory_to_zip() {
 			_WriteFile(ziph, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
 			central_directory_size += sizeof(zip64_extra_field);
 		}
-
-		// Update zip metadata
-		central_directory_size += sizeof(central_directory_file_header) + f->name_length;
 		
 		file_destroy(f);
 	}

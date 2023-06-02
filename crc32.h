@@ -3,11 +3,15 @@
 
 #include <stdint.h>
 
+#define CRC32_INITIAL_VALUE 	  0xFFFFFFFF
+#define CRC32_REVERSED_POLYNOMIAL 0xEDB88320
+
 /**
- * Returns the CRC32 checksum of the specified file.
+ * Combines two specified CRC32 values.
  * 
- * @param file_name the path to the file to calculate the CRC32 checksum of
+ * @param crc1 the first CRC32 value
+ * @param crc2 the second CRC32 value
 */
-uint32_t file_crc32(char* file_name, uint64_t file_size);
+uint32_t crc32_combine(uint32_t crc1, uint32_t crc2, uint64_t len2);
 
 #endif
