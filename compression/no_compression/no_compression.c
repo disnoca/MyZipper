@@ -21,26 +21,32 @@ DWORD WINAPI thread_file_write(void* data) {
 	uint32_t crc32 = CRC32_INITIAL_VALUE;
 
   	HANDLE ofh = _CreateFileA(fwtd->origin_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-  	HANDLE dfh = _CreateFileA(fwtd->dest_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+  	HANDLE dfh = _CreateFileA(fwtd->dest_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 	_SetFilePointerEx(ofh, (LARGE_INTEGER) {.QuadPart = fwtd->origin_offset}, NULL, FILE_BEGIN);
-	_SetFilePointerEx(dfh, (LARGE_INTEGER) {.QuadPart = fwtd->start_byte}, NULL, FILE_BEGIN);
 
 	unsigned char* buffer = Malloc(BUFFER_SIZE);
 	DWORD batch_size;
-    uint64_t total_bytes_written = 0;
+    uint64_t total_bytes_written = 0, curr_offset = fwtd->start_byte;
 
 	while(total_bytes_written < fwtd->bytes_to_write) {
+		OVERLAPPED overlapped = {0};
+		overlapped.Offset = curr_offset & 0xFFFFFFFF;
+		overlapped.OffsetHigh = curr_offset >> 32;
+
 		batch_size = MIN(BUFFER_SIZE, fwtd->bytes_to_write - total_bytes_written);
 		total_bytes_written += batch_size;
+		curr_offset += batch_size;
 
 		_ReadFile(ofh, buffer, batch_size, NULL, NULL);
-		_WriteFile(dfh, buffer, batch_size, NULL, NULL);	// TODO: use asynchronous write and calculate CRC32 while writing
+		_WriteFile(dfh, buffer, batch_size, NULL, &overlapped);
 
 		for(DWORD i = 0; i < batch_size; i++) {
 			crc32 ^= buffer[i];
 			for(unsigned char j = 0; j < 8; j++)
 				crc32 = (crc32 >> 1) ^ (CRC32_REVERSED_POLYNOMIAL & -(crc32 & 1));
 		}
+
+		_GetOverlappedResult(dfh, &overlapped, &batch_size, TRUE);
 	}
 
 	fwtd->crc32 = ~crc32;
