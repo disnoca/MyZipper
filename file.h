@@ -11,7 +11,7 @@ struct file {
 	bool is_directory;
 	unsigned num_children;
 	file** children;
-	HANDLE fh;
+	HANDLE hFile;
 	char* name;
 	uint16_t name_length;
 	bool is_large;

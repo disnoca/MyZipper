@@ -12,7 +12,7 @@
 #define WINDOWS_NTFS 0x0A
 
 static char* zip_file_name;
-static HANDLE ziph;
+static HANDLE hZip;
 static queue* file_queue;
 
 static uint16_t num_records;
@@ -109,15 +109,15 @@ static void write_file_to_zip(file* f) {
 
 	// Get the file's local file header and write it to the zip
 	local_file_header lfh = get_file_header(f);
-	_WriteFile(ziph, &lfh, sizeof(local_file_header), NULL, NULL);
-	_WriteFile(ziph, f->name, f->name_length, NULL, NULL);
+	_WriteFile(hZip, &lfh, sizeof(local_file_header), NULL, NULL);
+	_WriteFile(hZip, f->name, f->name_length, NULL, NULL);
 
 	zip_body_size += sizeof(local_file_header) + f->name_length;
 
 	// Write the file's zip64 extra field if it's large
 	if(f->is_large) {
 		zip64_extra_field z64ef = get_zip64_extra_field(f);
-		_WriteFile(ziph, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
+		_WriteFile(hZip, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
 		zip_body_size += sizeof(zip64_extra_field);
 	}
 
@@ -126,20 +126,20 @@ static void write_file_to_zip(file* f) {
 		compress_and_write(f, zip_file_name, zip_body_size);
 
 		// Set the file pointer to the local file header's CRC32 and compressed size fields and update them
-		_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = local_file_header_crc32_offset}, NULL, FILE_BEGIN);
+		_SetFilePointerEx(hZip, (LARGE_INTEGER) {.QuadPart = local_file_header_crc32_offset}, NULL, FILE_BEGIN);
 		uint32_t compressed_file_size = f->is_large ? 0xFFFFFFFF : f->compressed_size;
-		_WriteFile(ziph, &f->crc32, sizeof(uint32_t), NULL, NULL);
-		_WriteFile(ziph, &compressed_file_size, sizeof(uint32_t), NULL, NULL);
+		_WriteFile(hZip, &f->crc32, sizeof(uint32_t), NULL, NULL);
+		_WriteFile(hZip, &compressed_file_size, sizeof(uint32_t), NULL, NULL);
 
 		if(f->is_large) {
 			// Set the file pointer to the local file header's uncompressed size field and update it
-			_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = zip_body_size - ZIP64_EXTRA_FIELD_COMPRESSED_SIZE_OFFSET_FROM_END}, NULL, FILE_BEGIN);
-			_WriteFile(ziph, &f->compressed_size, sizeof(uint64_t), NULL, NULL);
+			_SetFilePointerEx(hZip, (LARGE_INTEGER) {.QuadPart = zip_body_size - ZIP64_EXTRA_FIELD_COMPRESSED_SIZE_OFFSET_FROM_END}, NULL, FILE_BEGIN);
+			_WriteFile(hZip, &f->compressed_size, sizeof(uint64_t), NULL, NULL);
 		}
 
 		// Restore the file pointer to the end of the written data
 		zip_body_size += f->compressed_size;
-		_SetFilePointerEx(ziph, (LARGE_INTEGER) {.QuadPart = zip_body_size}, NULL, FILE_BEGIN);
+		_SetFilePointerEx(hZip, (LARGE_INTEGER) {.QuadPart = zip_body_size}, NULL, FILE_BEGIN);
 	}
 
 	num_records++;
@@ -152,15 +152,15 @@ void write_central_directory_to_zip() {
 
 		// Get the file's central directory file header and write it to the zip
 		central_directory_file_header cdfh = get_central_directory_file_header(f);
-		_WriteFile(ziph, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
-		_WriteFile(ziph, f->name, f->name_length, NULL, NULL);
+		_WriteFile(hZip, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
+		_WriteFile(hZip, f->name, f->name_length, NULL, NULL);
 
 		central_directory_size += sizeof(central_directory_file_header) + f->name_length;
 		
 		// Write the file's zip64 extra field if it's large
 		if(f->is_large) {
 			zip64_extra_field z64ef = get_zip64_extra_field(f);
-			_WriteFile(ziph, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
+			_WriteFile(hZip, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
 			central_directory_size += sizeof(zip64_extra_field);
 		}
 		
@@ -171,12 +171,12 @@ void write_central_directory_to_zip() {
 
 	// Write the central directory record tail to the zip
 	central_directory_record_tail cdrt = get_central_directory_record_tail();
-	_WriteFile(ziph, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
+	_WriteFile(hZip, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
 }
 
 int main(int argc, char** argv) {
 	zip_file_name = argv[1];
-	ziph = _CreateFileA(zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	hZip = _CreateFileA(zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	file_queue = queue_create();
 
@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
 
 	write_central_directory_to_zip();
 
-	_CloseHandle(ziph);
+	_CloseHandle(hZip);
 
 	return 0;
 }

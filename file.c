@@ -130,7 +130,7 @@ file* file_create(char* path, unsigned compression_method) {
 	if(f->is_directory)
 		get_file_children(f);
 	else {
-		f->fh = _CreateFileA(f->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		f->hFile = _CreateFileA(f->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		get_file_size(f);
 		get_compression_function_and_size(f);
 		get_file_mod_time(f);
@@ -143,7 +143,7 @@ void file_destroy(file* f) {
 	if(f->is_directory)
 		Free(f->children);
 	else
-		_CloseHandle(f->fh);
+		_CloseHandle(f->hFile);
 
 	Free(f->name);
 	Free(f);
