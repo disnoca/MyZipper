@@ -35,12 +35,8 @@ static void get_file_name(file* f, char* path) {
 }
 
 static void get_file_size(file* f) {
-	HANDLE fileHandle = _CreateFileA(f->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-
 	LARGE_INTEGER fileSize;
-	_GetFileSizeEx(fileHandle, &fileSize);
-
-	_CloseHandle(fileHandle);
+	_GetFileSizeEx(f->hFile, &fileSize);
 
 	f->uncompressed_size = fileSize.QuadPart;
 	f->is_large = f->uncompressed_size > 0xFFFFFFFF;
@@ -102,13 +98,11 @@ static void get_file_children(file* f) {
 }
 
 static void get_file_mod_time(file* f) {
-	HANDLE fileHandle = _CreateFileA(f->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	FILETIME lastModFileTime;
 	SYSTEMTIME lastModUTCTime, lastModLocalTime;
 
 	// Get file last mod time
-	_GetFileTime(fileHandle, NULL, NULL, &lastModFileTime);
-	_CloseHandle(fileHandle);
+	_GetFileTime(f->hFile, NULL, NULL, &lastModFileTime);
 	_FileTimeToSystemTime(&lastModFileTime, &lastModUTCTime);
 	_SystemTimeToTzSpecificLocalTime(NULL, &lastModUTCTime, &lastModLocalTime);
 
