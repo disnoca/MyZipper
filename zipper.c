@@ -8,10 +8,7 @@
 #include "compression/compression.h"
 #include "wrapper_functions.h"
 
-#define ZIP_VERSION  45
-#define WINDOWS_NTFS 0x0A
-
-static char* zip_file_name;
+static LPWSTR zip_file_name;
 static HANDLE hZip;
 static queue* file_queue;
 
@@ -43,7 +40,7 @@ static central_directory_file_header get_central_directory_file_header(file* f) 
 	cdfh.signature = CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE;
 	cdfh.version_made_by = (WINDOWS_NTFS << 8) | ZIP_VERSION;
 	cdfh.version_needed_to_extract = ZIP_VERSION;
-	cdfh.flags = 0x0000;
+	cdfh.flags = UTF8_ENCODING;
 	cdfh.compression = f->compression_method;
 	cdfh.mod_time = f->mod_time;
 	cdfh.mod_date = f->mod_date;
@@ -174,9 +171,12 @@ void write_central_directory_to_zip() {
 	_WriteFile(hZip, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
 }
 
-int main(int argc, char** argv) {
+int main() {
+	int argc;
+	LPWSTR* argv = _CommandLineToArgvW(GetCommandLineW(), &argc);
+
 	zip_file_name = argv[1];
-	hZip = _CreateFileA(zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	hZip = _CreateFileW(zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	file_queue = queue_create();
 

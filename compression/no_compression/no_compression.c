@@ -9,7 +9,7 @@
 #define BUFFER_SIZE 4096
 
 typedef struct {
-	char *origin_name, *dest_name;
+	LPWSTR origin_name, dest_name;
 	uint64_t origin_offset, dest_offset;
 	uint64_t num_bytes_to_write;
 	uint32_t crc32;
@@ -19,8 +19,8 @@ DWORD WINAPI thread_file_write(void* data) {
 	file_write_thread_data* fwtd = (file_write_thread_data*) data;
 	uint32_t crc32 = CRC32_INITIAL_VALUE;
 
-  	HANDLE hOrigin = _CreateFileA(fwtd->origin_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
-  	HANDLE hDest = _CreateFileA(fwtd->dest_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
+  	HANDLE hOrigin = _CreateFileW(fwtd->origin_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_FLAG_SEQUENTIAL_SCAN, NULL);
+  	HANDLE hDest = _CreateFileW(fwtd->dest_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 	_SetFilePointerEx(hOrigin, (LARGE_INTEGER) {.QuadPart = fwtd->origin_offset}, NULL, FILE_BEGIN);
 
 	unsigned char* buffer = Malloc(BUFFER_SIZE);
@@ -62,7 +62,7 @@ DWORD WINAPI thread_file_write(void* data) {
   	return 0;
 }
 
-void no_compression(file* f, char* dest_name, uint64_t dest_file_offset) {
+void no_compression(file* f, LPWSTR dest_name, uint64_t dest_file_offset) {
 	unsigned num_threads = f->uncompressed_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
 
 	file_write_thread_data* threads_data = Malloc(num_threads * sizeof(file_write_thread_data));
@@ -72,7 +72,7 @@ void no_compression(file* f, char* dest_name, uint64_t dest_file_offset) {
 	unsigned remainder = f->uncompressed_size % num_threads;
 
 	for(unsigned i = 0; i < num_threads; i++) {
-		threads_data[i].origin_name = f->name;
+		threads_data[i].origin_name = f->wide_char_name;
 		threads_data[i].dest_name = dest_name;
 		threads_data[i].origin_offset = bytes_per_thread * i;
 		threads_data[i].dest_offset = dest_file_offset + threads_data[i].origin_offset;

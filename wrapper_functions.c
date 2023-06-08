@@ -44,11 +44,11 @@ void Free(void* ptr) {
 }
 
 
-HANDLE _CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
-    HANDLE fileHandle = CreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
-    if(fileHandle == INVALID_HANDLE_VALUE)
-        exit_with_error("CreateFileA error: %lu\n", GetLastError());
-    return fileHandle;
+HANDLE _CreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile) {
+    HANDLE hFile = CreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
+    if(hFile == INVALID_HANDLE_VALUE)
+        exit_with_error("CreateFileW error: %lu\n", GetLastError());
+    return hFile;
 }
 
 void _CloseHandle(HANDLE hObject) {
@@ -87,11 +87,11 @@ void _GetOverlappedResult(HANDLE hFile, LPOVERLAPPED lpOverlapped, LPDWORD lpNum
 }
 
 
-DWORD _GetFileAttributes(LPCSTR lpFileName) {
-    DWORD dwAttrib = GetFileAttributes(lpFileName);
-    if(dwAttrib == INVALID_FILE_ATTRIBUTES)
-        exit_with_error("GetFileAttributes error: %lu\n", GetLastError());
-    return dwAttrib;
+DWORD _GetFileAttributesW(LPCWSTR lpFileName) {
+    DWORD dwAttributes = GetFileAttributesW(lpFileName);
+    if(dwAttributes == INVALID_FILE_ATTRIBUTES)
+        exit_with_error("GetFileAttributesW error: %lu\n", GetLastError());
+    return dwAttributes;
 }
 
 
@@ -111,17 +111,17 @@ void _SystemTimeToTzSpecificLocalTime(const TIME_ZONE_INFORMATION* lpTimeZoneInf
 }
 
 
-HANDLE _FindFirstFile(LPCSTR lpFileName, LPWIN32_FIND_DATAA lpFindFileData) {
-    HANDLE hFind = FindFirstFile(lpFileName, lpFindFileData);
-    if(hFind == INVALID_HANDLE_VALUE)
-        exit_with_error("FindFirstFile error: %lu\n", GetLastError());
-    return hFind;
+HANDLE _FindFirstFileW(LPCWSTR lpFileName, LPWIN32_FIND_DATAW lpFindFileData) {
+    HANDLE hFindFile = FindFirstFileW(lpFileName, lpFindFileData);
+    if(hFindFile == INVALID_HANDLE_VALUE)
+        exit_with_error("FindFirstFileW error: %lu\n", GetLastError());
+    return hFindFile;
 }
 
-BOOL _FindNextFile(HANDLE hFindFile, LPWIN32_FIND_DATAA lpFindFileData) {
-    if(!FindNextFile(hFindFile, lpFindFileData)) {
+BOOL _FindNextFileW(HANDLE hFindFile, LPWIN32_FIND_DATAW lpFindFileData) {
+    if(!FindNextFileW(hFindFile, lpFindFileData)) {
         if(GetLastError() != ERROR_NO_MORE_FILES)
-            exit_with_error("FindNextFile error: %lu\n", GetLastError());
+            exit_with_error("FindNextFileW error: %lu\n", GetLastError());
         return FALSE;
     }
     return TRUE;
@@ -151,4 +151,26 @@ DWORD _WaitForMultipleObjects(DWORD nCount,const HANDLE* lpHandles,BOOL bWaitAll
     if(dwWaitResult == WAIT_FAILED)
         exit_with_error("WaitForMultipleObjects error: %lu\n", GetLastError());
     return dwWaitResult;
+}
+
+LPWSTR* _CommandLineToArgvW(LPCWSTR lpCmdLine, int *pNumArgs) {
+    LPWSTR* argv = CommandLineToArgvW(lpCmdLine, pNumArgs);
+    if(argv == NULL)
+        exit_with_error("CommandLineToArgvW error: %lu\n", GetLastError());
+    return argv;
+}
+
+
+int _WideCharToMultiByte(UINT CodePage, DWORD dwFlags, LPCWCH lpWideCharStr, int cchWideChar, LPSTR lpMultiByteStr, int cbMultiByte, LPCCH lpDefaultChar, LPBOOL lpUsedDefaultChar) {
+    int ret = WideCharToMultiByte(CodePage, dwFlags, lpWideCharStr, cchWideChar, lpMultiByteStr, cbMultiByte, lpDefaultChar, lpUsedDefaultChar);
+    if(ret == 0)
+        exit_with_error("WideCharToMultiByte error: %lu\n", GetLastError());
+    return ret;
+}
+
+int _MultiByteToWideChar(UINT CodePage, DWORD dwFlags, LPCCH lpMultiByteStr, int cbMultiByte, LPWSTR lpWideCharStr, int cchWideChar) {
+    int ret = MultiByteToWideChar(CodePage, dwFlags, lpMultiByteStr, cbMultiByte, lpWideCharStr, cchWideChar);
+    if(ret == 0)
+        exit_with_error("MultiByteToWideChar error: %lu\n", GetLastError());
+    return ret;
 }

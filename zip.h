@@ -7,6 +7,10 @@
 #define CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE    0x02014B50
 #define CENTRAL_DIRECTORY_RECORD_TAIL_SIGNATURE    0x06054B50
 
+#define ZIP_VERSION  							   45
+#define WINDOWS_NTFS 							   0x0A
+#define UTF8_ENCODING 							   1 << 11
+
 #define LOCAL_FILE_HEADER_CRC32_OFFSET 			   14
 
 /* Zip Structs */

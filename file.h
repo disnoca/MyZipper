@@ -14,13 +14,14 @@ struct file {
 	HANDLE hFile;
 	char* name;
 	uint16_t name_length;
+	LPWSTR wide_char_name;
 	bool is_large;
 	uint64_t uncompressed_size, compressed_size;
 	uint16_t compression_method;
 	uint16_t mod_time, mod_date;
 	uint32_t crc32;
 	uint32_t local_header_offset;
-	void (*compression_func)(file* f, char* dest_name, uint64_t dest_file_offset);
+	void (*compression_func)(file* f, LPWSTR dest_name, uint64_t dest_file_offset);
 };
 
 /**
@@ -30,7 +31,7 @@ struct file {
  * @param compression_method the compression method to use
  * @return a file struct pointer with the file's data and info
 */
-file* file_create(char* path, unsigned compression_method);
+file* file_create(LPWSTR path, unsigned compression_method);
 
 /**
  * Destroys the specified file struct, freeing its allocated memory.
@@ -46,6 +47,6 @@ void file_destroy(file* f);
  * @param dest_name the path to the file to write the compressed data to
  * @param dest_offset the offset of the file to write the compressed data to
 */
-void compress_and_write(file* f, char* dest_name, uint64_t dest_offset);
+void compress_and_write(file* f, LPWSTR dest_name, uint64_t dest_offset);
 
 #endif

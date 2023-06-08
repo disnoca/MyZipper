@@ -12,6 +12,6 @@
  * @param dest the file to copy data to
  * @param dest_file_offset the offset in the destination file to start writing data to
 */
-void no_compression(file* f, char* dest_name, uint64_t dest_file_offset);
+void no_compression(file* f, LPWSTR dest_name, uint64_t dest_file_offset);
 
 #endif

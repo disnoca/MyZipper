@@ -10,28 +10,33 @@
 
 /* Helper Functions */
 
-static bool is_directory(char* path) {
-	return _GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY;
+static bool is_directory(LPWSTR path) {
+	return _GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY;
 }
 
-static void get_file_name(file* f, char* path) {
+static void get_file_name(file* f, LPWSTR path) {
 	// Cut out preceding dot and slash if in path
-	if(path[0] == '.' && path[1] == '\\')
+	if(path[0] == L'.' && path[1] == L'\\')
 		path += 2;
 
-	f->name_length = strlen(path);
+	unsigned path_length = wcslen(path);
+	bool needs_trailing_slash = f->is_directory && path[path_length - 1] != L'\\';
 
-	// If file is a directory and does not have a trailing slash, add one
-	if(f->is_directory && path[f->name_length - 1] != '\\') {
-		f->name = Malloc(f->name_length + 2);
-		memcpy(f->name, path, f->name_length);
-		memcpy(f->name + f->name_length++, "\\", 2);
-	} 
-	// Otherwise, just copy path into file name
-	else {
-		f->name = Malloc(f->name_length + 1);
-		memcpy(f->name, path, f->name_length + 1);
+	// Copy path to wide_char_name
+	unsigned wide_char_name_length = path_length + needs_trailing_slash;
+	f->wide_char_name = Malloc((wide_char_name_length + 1) * sizeof(WCHAR));
+	memcpy(f->wide_char_name, path, (path_length + 1) * sizeof(WCHAR));
+
+	// Add a trailing slash if directory is missing one
+	if(needs_trailing_slash) {
+		f->wide_char_name[wide_char_name_length - 1] = L'\\';
+		f->wide_char_name[wide_char_name_length] = L'\0';
 	}
+
+	// Convert name to UTF-8
+	f->name_length = _WideCharToMultiByte(CP_UTF8, 0, f->wide_char_name, -1, NULL, 0, NULL, NULL);
+	f->name = Malloc(f->name_length + 1);
+	_WideCharToMultiByte(CP_UTF8, 0, f->wide_char_name, wide_char_name_length + 1, f->name, f->name_length + 1, NULL, NULL);
 }
 
 static void get_file_size(file* f) {
@@ -51,22 +56,24 @@ static void get_compression_function_and_size(file* f) {
 }
 
 static void get_file_children(file* f) {
-	WIN32_FIND_DATA fdFile;
+	WIN32_FIND_DATAW fdFile;
+
+	unsigned path_length = wcslen(f->wide_char_name);
 
 	// Append "*" to path to get all files in directory
-	char path[f->name_length + 2];
-	memcpy(path, f->name, f->name_length);
-	memcpy(path + f->name_length, "*", 2);
+	WCHAR path[path_length + 2];
+	memcpy(path, f->wide_char_name, path_length * sizeof(WCHAR));
+	memcpy(path + path_length, L"*", 2 * sizeof(WCHAR));
 
 	// First two file finds will always return "." and ".."
-    HANDLE hFind = _FindFirstFile(path, &fdFile);
-	_FindNextFile(hFind, &fdFile);
+    HANDLE hFind = _FindFirstFileW(path, &fdFile);
+	_FindNextFileW(hFind, &fdFile);
 
 	// Allocate memory for found file names
 	unsigned children_array_capacity = DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY;
 	f->children = Malloc(sizeof(file*) * children_array_capacity);
 
-    while(_FindNextFile(hFind, &fdFile)) {
+    while(_FindNextFileW(hFind, &fdFile)) {
 		// Allocate more memory for array if necessary
 		if(f->num_children == children_array_capacity) {
 			children_array_capacity *= 2;
@@ -74,10 +81,10 @@ static void get_file_children(file* f) {
 		}
 
 		// Copy path and found file name into buffer
-		unsigned file_name_length = f->name_length + strlen(fdFile.cFileName) + 1;
-		char file_name[file_name_length];
-		memcpy(file_name, f->name, f->name_length);
-		memcpy(file_name + f->name_length, fdFile.cFileName, file_name_length - f->name_length);
+		unsigned file_name_length = path_length + wcslen(fdFile.cFileName) + 1;
+		WCHAR file_name[file_name_length];
+		memcpy(file_name, f->wide_char_name, path_length * sizeof(WCHAR));
+		memcpy(file_name + path_length, fdFile.cFileName, (file_name_length - path_length) * sizeof(WCHAR));
 
 		/*
 		 * Create child file.
@@ -113,7 +120,7 @@ static void get_file_mod_time(file* f) {
 
 /* Header Implementations */
 
-file* file_create(char* path, unsigned compression_method) {
+file* file_create(LPWSTR path, unsigned compression_method) {
 	file* f = Calloc(1, sizeof(file));
 
 	f->compression_method = compression_method;
@@ -124,7 +131,7 @@ file* file_create(char* path, unsigned compression_method) {
 	if(f->is_directory)
 		get_file_children(f);
 	else {
-		f->hFile = _CreateFileA(f->name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+		f->hFile = _CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		get_file_size(f);
 		get_compression_function_and_size(f);
 		get_file_mod_time(f);
@@ -140,9 +147,11 @@ void file_destroy(file* f) {
 		_CloseHandle(f->hFile);
 
 	Free(f->name);
+	Free(f->wide_char_name);
 	Free(f);
 }
 
-void compress_and_write(file* f, char* dest_name, uint64_t dest_offset) {
-	f->compression_func(f, dest_name, dest_offset);
+void compress_and_write(file* f, LPWSTR dest_name, uint64_t dest_offset) {
+	if(f->uncompressed_size > 0)
+		f->compression_func(f, dest_name, dest_offset);
 }
