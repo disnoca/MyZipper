@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra
 
 SOURCES := \
 wrapper_functions.c \
-file.c \
+zipper_file.c \
 queue.c \
 crc32.c \
 concurrency.c \

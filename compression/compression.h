@@ -6,12 +6,12 @@
 #define NO_COMPRESSION 0
 
 /**
- * Copies data from the specified origin file to the specified destination file and returns its CRC32.
+ * Copies data from the specified origin zipper_file to the specified destination zipper_file and returns its CRC32.
  * 
- * @param f the file to copy data from
- * @param dest the file to copy data to
- * @param dest_file_offset the offset in the destination file to start writing data to
+ * @param zf the zipper_file to copy data from
+ * @param dest the zipper_file to copy data to
+ * @param dest_offset the offset in the destination zipper_file to start writing data to
 */
-void no_compression(file* f, LPWSTR dest_name, uint64_t dest_file_offset);
+void no_compression(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset);
 
 #endif

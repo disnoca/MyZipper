@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "../../file.h"
+#include "../../zipper_file.h"
 #include "../../concurrency.h"
 #include "../../crc32.h"
 #include "../../wrapper_functions.h"
@@ -62,20 +62,20 @@ DWORD WINAPI thread_file_write(void* data) {
   	return 0;
 }
 
-void no_compression(file* f, LPWSTR dest_name, uint64_t dest_file_offset) {
-	unsigned num_threads = f->uncompressed_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
+void no_compression(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset) {
+	unsigned num_threads = zf->uncompressed_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
 
 	file_write_thread_data* threads_data = Malloc(num_threads * sizeof(file_write_thread_data));
 	HANDLE* threads = Malloc(num_threads * sizeof(HANDLE));
 
-	uint64_t bytes_per_thread = f->uncompressed_size / num_threads;
-	unsigned remainder = f->uncompressed_size % num_threads;
+	uint64_t bytes_per_thread = zf->uncompressed_size / num_threads;
+	unsigned remainder = zf->uncompressed_size % num_threads;
 
 	for(unsigned i = 0; i < num_threads; i++) {
-		threads_data[i].origin_name = f->wide_char_name;
+		threads_data[i].origin_name = zf->wide_char_name;
 		threads_data[i].dest_name = dest_name;
 		threads_data[i].origin_offset = bytes_per_thread * i;
-		threads_data[i].dest_offset = dest_file_offset + threads_data[i].origin_offset;
+		threads_data[i].dest_offset = dest_offset + threads_data[i].origin_offset;
 		threads_data[i].num_bytes_to_write = bytes_per_thread;
 		if(i == num_threads - 1)
 			threads_data[i].num_bytes_to_write += remainder;
@@ -93,8 +93,8 @@ void no_compression(file* f, LPWSTR dest_name, uint64_t dest_file_offset) {
 	for(unsigned i = 1; i < num_threads; i++)
 		crc32 = crc32_combine(crc32, threads_data[i].crc32, threads_data[i].num_bytes_to_write);
 
-	f->crc32 = crc32;
-	f->compressed_size = f->uncompressed_size;
+	zf->crc32 = crc32;
+	zf->compressed_size = zf->uncompressed_size;
 
 	Free(threads_data);
 	Free(threads);
