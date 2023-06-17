@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <windows.h>
-#include "zip.h"
+#include "../zip.h"
 #include "zipper_file.h"
-#include "queue.h"
+#include "../queue.h"
 #include "compression/compression.h"
-#include "wrapper_functions.h"
+#include "../wrapper_functions.h"
 
 static LPWSTR zip_file_name;
 static HANDLE hZip;

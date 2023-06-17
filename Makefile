@@ -2,22 +2,23 @@ CC = gcc
 CFLAGS = -Wall -Wextra
 
 SOURCES := \
-wrapper_functions.c \
-zipper_file.c \
-queue.c \
-crc32.c \
-concurrency.c \
-compression/no_compression/no_compression.c
+src/wrapper_functions.c \
+src/queue.c \
+src/concurrency.c \
+src/zipper/zipper_file.c \
+src/zipper/crc32.c \
+src/zipper/compression/no_compression/no_compression.c \
+src/zipper/zipper.c
 
-TARGET = zipper
+TARGET = zipper.exe
 
 all: $(TARGET)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(TARGET): $(TARGET).c $(SOURCES:.c=.o)
-	$(CC) $(CFLAGS) -o $@ $< $(SOURCES:.c=.o) 
+$(TARGET): $(SOURCES:.c=.o)
+	$(CC) $(CFLAGS) -o $@ $(SOURCES:.c=.o)
 
 clean:
-	del /q *.o $(TARGET).exe
+	del /q *.o $(TARGET)

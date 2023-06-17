@@ -3,7 +3,7 @@
 #include "zipper_file.h"
 #include "crc32.h"
 #include "compression/compression.h"
-#include "wrapper_functions.h"
+#include "../wrapper_functions.h"
 
 #define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
 

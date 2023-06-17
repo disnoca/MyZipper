@@ -1,6 +1,4 @@
 #include <windows.h>
-#include "concurrency.h"
-#include "wrapper_functions.h"
 #include "crc32.h"
 
 /* 

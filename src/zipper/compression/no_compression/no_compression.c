@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../zipper_file.h"
-#include "../../concurrency.h"
+#include "../../../concurrency.h"
 #include "../../crc32.h"
-#include "../../wrapper_functions.h"
+#include "../../../wrapper_functions.h"
 #include "../compression.h"
 
 #define BUFFER_SIZE 4096
