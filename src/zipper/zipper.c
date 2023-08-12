@@ -5,7 +5,7 @@
 #include "../zip.h"
 #include "zipper_file.h"
 #include "../queue.h"
-#include "compression/compression.h"
+#include "../compression/compression.h"
 #include "../wrapper_functions.h"
 
 static LPWSTR zip_file_name;

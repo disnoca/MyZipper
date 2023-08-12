@@ -1,2 +1,10 @@
 ## TODO
-Deal with path prefixes in file name (C:\, \, .\, ..\, etc.)
+Programs:
+- zip consistency checker
+- zip info 
+- unzipper
+- remover
+- appender
+- extactor
+- previewer
+- renamer

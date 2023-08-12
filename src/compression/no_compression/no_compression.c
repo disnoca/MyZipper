@@ -1,9 +1,9 @@
 #include <stdint.h>
 #include <stdbool.h>
-#include "../../zipper_file.h"
-#include "../../../concurrency.h"
+#include "../../zipper/zipper_file.h"
+#include "../../concurrency.h"
 #include "../../crc32.h"
-#include "../../../wrapper_functions.h"
+#include "../../wrapper_functions.h"
 #include "../compression.h"
 
 #define BUFFER_SIZE 4096
@@ -62,19 +62,28 @@ DWORD WINAPI thread_file_write(void* data) {
   	return 0;
 }
 
-void no_compression(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset) {
-	unsigned num_threads = zf->uncompressed_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
+/**
+ * Writes the contents of a file to another file and returns the data's CRC32.
+ * 
+ * @param origin_name the name of the file to read data from
+ * @param dest_name the name of the file to write data to
+ * @param origin_offset the offset in the origin file to start reading data from
+ * @param dest_offset the offset in the destination file to start writing data to
+ * @param file_size the number of bytes to copy
+*/
+static uint32_t file_write(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t dest_offset, uint64_t file_size) {
+	unsigned num_threads = file_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
 
 	file_write_thread_data* threads_data = Malloc(num_threads * sizeof(file_write_thread_data));
 	HANDLE* threads = Malloc(num_threads * sizeof(HANDLE));
 
-	uint64_t bytes_per_thread = zf->uncompressed_size / num_threads;
-	unsigned remainder = zf->uncompressed_size % num_threads;
+	uint64_t bytes_per_thread = file_size / num_threads;
+	unsigned remainder = file_size % num_threads;
 
 	for(unsigned i = 0; i < num_threads; i++) {
-		threads_data[i].origin_name = zf->wide_char_name;
+		threads_data[i].origin_name = origin_name;
 		threads_data[i].dest_name = dest_name;
-		threads_data[i].origin_offset = bytes_per_thread * i;
+		threads_data[i].origin_offset = origin_offset + bytes_per_thread * i;
 		threads_data[i].dest_offset = dest_offset + threads_data[i].origin_offset;
 		threads_data[i].num_bytes_to_write = bytes_per_thread;
 		if(i == num_threads - 1)
@@ -93,9 +102,21 @@ void no_compression(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset) {
 	for(unsigned i = 1; i < num_threads; i++)
 		crc32 = crc32_combine(crc32, threads_data[i].crc32, threads_data[i].num_bytes_to_write);
 
-	zf->crc32 = crc32;
-	zf->compressed_size = zf->uncompressed_size;
-
 	Free(threads_data);
 	Free(threads);
+
+	return crc32;
+}
+
+void no_compression_compress(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset) {
+	zf->compressed_size = zf->uncompressed_size;
+	zf->crc32 = file_write(zf->wide_char_name, dest_name, 0, dest_offset, zf->uncompressed_size);
+}
+
+void no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size) {
+	// Create destination file
+	HANDLE hDest = _CreateFileW(dest_name, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
+	_CloseHandle(hDest);
+
+	file_write(origin_name, dest_name, origin_offset, 0, file_size);
 }

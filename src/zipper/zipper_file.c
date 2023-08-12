@@ -1,8 +1,8 @@
 #include <stdbool.h>
 #include <windows.h>
 #include "zipper_file.h"
-#include "crc32.h"
-#include "compression/compression.h"
+#include "../crc32.h"
+#include "../compression/compression.h"
 #include "../wrapper_functions.h"
 
 #define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
@@ -50,7 +50,7 @@ static void get_file_size(zipper_file* zf) {
 static void get_compression_function_and_size(zipper_file* zf) {
 	switch(zf->compression_method) {
 		case(NO_COMPRESSION): 
-			zf->compression_func = no_compression;
+			zf->compression_func = no_compression_compress;
 			break;
 	}
 }
