@@ -8,12 +8,15 @@
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
 
-static LPWSTR zip_file_name;
-static HANDLE hZip;
-static queue* file_queue;
+typedef struct {
+    LPWSTR zip_file_name;
+	HANDLE hZip;
 
-static uint16_t num_records;
-static uint64_t zip_body_size, central_directory_size;
+	uint16_t num_records;
+	uint64_t central_directory_start_offset, central_directory_size;
+
+	queue* file_queue;
+} zipper_context;
 
 
 static local_file_header get_file_header(zipper_file* zf) {
@@ -58,16 +61,16 @@ static central_directory_file_header get_central_directory_file_header(zipper_fi
 	return cdfh;
 }
 
-static central_directory_record_tail get_central_directory_record_tail() {
+static central_directory_record_tail get_central_directory_record_tail(zipper_context* zc) {
 	central_directory_record_tail cdrt;
 
 	cdrt.signature = CENTRAL_DIRECTORY_RECORD_TAIL_SIGNATURE;
 	cdrt.disk_number = 0;
 	cdrt.central_directory_start_disk_number = 0;
-	cdrt.num_records_on_disk = num_records;
-	cdrt.num_total_records = num_records;
-	cdrt.central_directory_size = central_directory_size;
-	cdrt.central_directory_start_offset = zip_body_size;
+	cdrt.num_records_on_disk = zc->num_records;
+	cdrt.num_total_records = zc->num_records;
+	cdrt.central_directory_size = zc->central_directory_size;
+	cdrt.central_directory_start_offset = zc->central_directory_start_offset;
 	cdrt.comment_length = 0;
 
 	return cdrt;
@@ -84,7 +87,7 @@ static zip64_extra_field get_zip64_extra_field(zipper_file* zf) {
 	return z64ef;
 }
 
-static void write_file_to_zip(zipper_file* zf) {
+static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	/*
 	 * Add the directory's children to the zip
 	 * This will recursively add all the files containted in the directory
@@ -92,102 +95,103 @@ static void write_file_to_zip(zipper_file* zf) {
 	*/
 	if(zf->is_directory && zf->num_children > 0) {
 		for(unsigned i = 0; i < zf->num_children; i++)
-			write_file_to_zip(zf->children[i]);
+			write_file_to_zip(zc, zf->children[i]);
 
 		zfile_destroy(zf);
 		return;
 	}
 
 	// Set the zipper_file's local header offset and save it in the queue
-	zf->local_header_offset = zip_body_size;
-	queue_enqueue(file_queue, zf);
+	zf->local_header_offset = zc->central_directory_start_offset;
+	queue_enqueue(zc->file_queue, zf);
 
-	uint64_t local_file_header_crc32_offset = zip_body_size + LOCAL_FILE_HEADER_CRC32_OFFSET;
+	uint64_t local_file_header_crc32_offset = zc->central_directory_start_offset + LOCAL_FILE_HEADER_CRC32_OFFSET;
 
 	// Get the zipper_file's local zipper_file header and write it to the zip
 	local_file_header lfh = get_file_header(zf);
-	_WriteFile(hZip, &lfh, sizeof(local_file_header), NULL, NULL);
-	_WriteFile(hZip, zf->name, zf->name_length, NULL, NULL);
+	_WriteFile(zc->hZip, &lfh, sizeof(local_file_header), NULL, NULL);
+	_WriteFile(zc->hZip, zf->name, zf->name_length, NULL, NULL);
 
-	zip_body_size += sizeof(local_file_header) + zf->name_length;
+	zc->central_directory_start_offset += sizeof(local_file_header) + zf->name_length;
 
 	// Write the zipper_file's zip64 extra field if it's large
 	if(zf->is_large) {
 		zip64_extra_field z64ef = get_zip64_extra_field(zf);
-		_WriteFile(hZip, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
-		zip_body_size += sizeof(zip64_extra_field);
+		_WriteFile(zc->hZip, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
+		zc->central_directory_start_offset += sizeof(zip64_extra_field);
 	}
 
 	if(!zf->is_directory) {
 		// Compress and write the zipper_file's data to the zip
-		zfile_compress_and_write(zf, zip_file_name, zip_body_size);
+		zfile_compress_and_write(zf, zc->zip_file_name, zc->central_directory_start_offset);
 
 		// Set the zipper_file pointer to the local zipper_file header's CRC32 and compressed size fields and update them
-		_SetFilePointerEx(hZip, (LARGE_INTEGER) {.QuadPart = local_file_header_crc32_offset}, NULL, FILE_BEGIN);
+		_SetFilePointerEx(zc->hZip, (LARGE_INTEGER) {.QuadPart = local_file_header_crc32_offset}, NULL, FILE_BEGIN);
 		uint32_t compressed_file_size = zf->is_large ? 0xFFFFFFFF : zf->compressed_size;
-		_WriteFile(hZip, &zf->crc32, sizeof(uint32_t), NULL, NULL);
-		_WriteFile(hZip, &compressed_file_size, sizeof(uint32_t), NULL, NULL);
+		_WriteFile(zc->hZip, &zf->crc32, sizeof(uint32_t), NULL, NULL);
+		_WriteFile(zc->hZip, &compressed_file_size, sizeof(uint32_t), NULL, NULL);
 
 		if(zf->is_large) {
 			// Set the zipper_file pointer to the local zipper_file header's uncompressed size field and update it
-			_SetFilePointerEx(hZip, (LARGE_INTEGER) {.QuadPart = zip_body_size - ZIP64_EXTRA_FIELD_COMPRESSED_SIZE_OFFSET_FROM_END}, NULL, FILE_BEGIN);
-			_WriteFile(hZip, &zf->compressed_size, sizeof(uint64_t), NULL, NULL);
+			_SetFilePointerEx(zc->hZip, (LARGE_INTEGER) {.QuadPart = zc->central_directory_start_offset - ZIP64_EXTRA_FIELD_COMPRESSED_SIZE_OFFSET_FROM_END}, NULL, FILE_BEGIN);
+			_WriteFile(zc->hZip, &zf->compressed_size, sizeof(uint64_t), NULL, NULL);
 		}
 
 		// Restore the zipper_file pointer to the end of the written data
-		zip_body_size += zf->compressed_size;
-		_SetFilePointerEx(hZip, (LARGE_INTEGER) {.QuadPart = zip_body_size}, NULL, FILE_BEGIN);
+		zc->central_directory_start_offset += zf->compressed_size;
+		_SetFilePointerEx(zc->hZip, (LARGE_INTEGER) {.QuadPart = zc->central_directory_start_offset}, NULL, FILE_BEGIN);
 	}
 
-	num_records++;
+	zc->num_records++;
 }
 
-void write_central_directory_to_zip() {
+void write_central_directory_to_zip(zipper_context* zc) {
 	// Write each zipper_file's central directory zipper_file header to the zip
-	while(file_queue->size > 0) {
-		zipper_file* zf = queue_dequeue(file_queue);
+	while(zc->file_queue->size > 0) {
+		zipper_file* zf = queue_dequeue(zc->file_queue);
 
 		// Get the zipper_file's central directory zipper_file header and write it to the zip
 		central_directory_file_header cdfh = get_central_directory_file_header(zf);
-		_WriteFile(hZip, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
-		_WriteFile(hZip, zf->name, zf->name_length, NULL, NULL);
+		_WriteFile(zc->hZip, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
+		_WriteFile(zc->hZip, zf->name, zf->name_length, NULL, NULL);
 
-		central_directory_size += sizeof(central_directory_file_header) + zf->name_length;
+		zc->central_directory_size += sizeof(central_directory_file_header) + zf->name_length;
 		
 		// Write the zipper_file's zip64 extra field if it's large
 		if(zf->is_large) {
 			zip64_extra_field z64ef = get_zip64_extra_field(zf);
-			_WriteFile(hZip, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
-			central_directory_size += sizeof(zip64_extra_field);
+			_WriteFile(zc->hZip, &z64ef, sizeof(zip64_extra_field), NULL, NULL);
+			zc->central_directory_size += sizeof(zip64_extra_field);
 		}
 		
 		zfile_destroy(zf);
 	}
 
-	Free(file_queue);
-
 	// Write the central directory record tail to the zip
-	central_directory_record_tail cdrt = get_central_directory_record_tail();
-	_WriteFile(hZip, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
+	central_directory_record_tail cdrt = get_central_directory_record_tail(zc);
+	_WriteFile(zc->hZip, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
 }
 
 int main() {
 	int argc;
 	LPWSTR* argv = _CommandLineToArgvW(GetCommandLineW(), &argc);
 
-	zip_file_name = argv[1];
-	hZip = _CreateFileW(zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	zipper_context zc = {0};
 
-	file_queue = queue_create();
+	zc.zip_file_name = argv[1];
+	zc.hZip = _CreateFileW(zc.zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+	zc.file_queue = queue_create();
 
 	for(int i = 2; i < argc; i++) {
 		zipper_file* zf = zfile_create(argv[i], NO_COMPRESSION);
-		write_file_to_zip(zf);
+		write_file_to_zip(&zc, zf);
 	}
 
-	write_central_directory_to_zip();
+	write_central_directory_to_zip(&zc);
 
-	_CloseHandle(hZip);
+	Free(zc.file_queue);
+	_CloseHandle(zc.hZip);
 
 	return 0;
 }
