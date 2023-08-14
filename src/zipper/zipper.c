@@ -4,7 +4,7 @@
 #include <windows.h>
 #include "../zip.h"
 #include "zipper_file.h"
-#include "../queue.h"
+#include "queue.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
 

@@ -1,5 +1,5 @@
 #include "queue.h"
-#include "wrapper_functions.h"
+#include "../wrapper_functions.h"
 
 /* Helper Functions */
 

@@ -1,7 +1,6 @@
 #include <stdbool.h>
 #include <windows.h>
 #include "zipper_file.h"
-#include "../crc32.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
 
