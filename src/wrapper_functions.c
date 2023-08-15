@@ -76,6 +76,12 @@ void _SetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove, PLARGE_INTE
         exit_with_error("SetFilePointerEx error: %lu\n", GetLastError());
 }
 
+LONGLONG _GetFilePointerEx(HANDLE hFile) {
+    LARGE_INTEGER fp = {0};
+    SetFilePointerEx(hFile, fp, &fp, FILE_CURRENT);
+    return fp.QuadPart;
+}
+
 void _Rewind(HANDLE hFile) {
     if(SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)
         exit_with_error("Rewind error: %lu\n", GetLastError());

@@ -11,8 +11,6 @@
 #define WINDOWS_NTFS 							   0x0A
 #define UTF8_ENCODING 							   1 << 11
 
-#define LOCAL_FILE_HEADER_CRC32_OFFSET 			   14
-
 /* Zip Structs */
 
 typedef struct {
@@ -71,13 +69,13 @@ typedef struct {
 
 #define ZIP64_EXTRA_FIELD_HEADER_ID	0x0001
 
-#define ZIP64_EXTRA_FIELD_COMPRESSED_SIZE_OFFSET_FROM_END 8
+#define ZIP64_EXTRA_FIELD_BASE_SIZE sizeof(uint16_t) * 2
 
 typedef struct {
 	uint16_t header_id;
 	uint16_t data_size;
-	uint64_t uncompressed_size;
-	uint64_t compressed_size;
+	uint64_t extra_fields[3]; 	// uncompressed size, compressed size, local header offset
+	//uint32_t disk_number_start;
 } __attribute__((packed)) zip64_extra_field;
 
 #endif

@@ -43,7 +43,6 @@ static void get_file_size(zipper_file* zf) {
 	_GetFileSizeEx(zf->hFile, &fileSize);
 
 	zf->uncompressed_size = fileSize.QuadPart;
-	zf->is_large = zf->uncompressed_size > 0xFFFFFFFF;
 }
 
 static void get_compression_function_and_size(zipper_file* zf) {

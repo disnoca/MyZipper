@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <windows.h>
+#include "../zip.h"
 
 typedef struct zipper_file zipper_file;
 
@@ -15,12 +16,12 @@ struct zipper_file {
 	char* name;
 	uint16_t name_length;
 	LPWSTR wide_char_name;
-	bool is_large;
 	uint64_t uncompressed_size, compressed_size;
 	uint16_t compression_method;
 	uint16_t mod_time, mod_date;
 	uint32_t crc32;
-	uint32_t local_header_offset;
+	uint64_t local_header_offset;
+	uint16_t zip64_extra_field_length;
 	void (*compression_func)(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset);
 };
 
