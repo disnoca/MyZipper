@@ -41,43 +41,43 @@ static local_file_header get_file_header(zipper_file* zf) {
 	return lfh;
 }
 
-static central_directory_file_header get_central_directory_file_header(zipper_file* zf) {
-	central_directory_file_header cdfh;
+static central_directory_header get_central_directory_header(zipper_file* zf) {
+	central_directory_header cdh;
 
-	cdfh.signature = CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE;
-	cdfh.version_made_by = (WINDOWS_NTFS << 8) | ZIP_VERSION;
-	cdfh.version_needed_to_extract = ZIP_VERSION;
-	cdfh.flags = UTF8_ENCODING;
-	cdfh.compression = zf->compression_method;
-	cdfh.mod_time = zf->mod_time;
-	cdfh.mod_date = zf->mod_date;
-	cdfh.crc32 = zf->crc32;
-	cdfh.compressed_size = zf->uncompressed_size >= 0xFFFFFFFF ? 0xFFFFFFFF : zf->compressed_size;
-	cdfh.uncompressed_size = MIN(zf->uncompressed_size, 0xFFFFFFFF);
-	cdfh.file_name_length = zf->name_length;
-	cdfh.extra_field_length = zf->zip64_extra_field_length;
-	cdfh.file_comment_length = 0;
-	cdfh.disk_number_start = 0;
-	cdfh.internal_file_attributes = 0;
-	cdfh.external_file_attributes = 0;
-	cdfh.local_header_offset = MIN(zf->local_header_offset, 0xFFFFFFFF);
+	cdh.signature = CENTRAL_DIRECTORY_HEADER_SIGNATURE;
+	cdh.version_made_by = (WINDOWS_NTFS << 8) | ZIP_VERSION;
+	cdh.version_needed_to_extract = ZIP_VERSION;
+	cdh.flags = UTF8_ENCODING;
+	cdh.compression = zf->compression_method;
+	cdh.mod_time = zf->mod_time;
+	cdh.mod_date = zf->mod_date;
+	cdh.crc32 = zf->crc32;
+	cdh.compressed_size = zf->uncompressed_size >= 0xFFFFFFFF ? 0xFFFFFFFF : zf->compressed_size;
+	cdh.uncompressed_size = MIN(zf->uncompressed_size, 0xFFFFFFFF);
+	cdh.file_name_length = zf->name_length;
+	cdh.extra_field_length = zf->zip64_extra_field_length;
+	cdh.file_comment_length = 0;
+	cdh.disk_number_start = 0;
+	cdh.internal_file_attributes = 0;
+	cdh.external_file_attributes = 0;
+	cdh.local_header_offset = MIN(zf->local_header_offset, 0xFFFFFFFF);
 
-	return cdfh;
+	return cdh;
 }
 
-static central_directory_record_tail get_central_directory_record_tail(uint16_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
-	central_directory_record_tail cdrt;
+static end_of_central_directory_record get_end_of_central_directory_record(uint16_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+	end_of_central_directory_record eoccr;
 
-	cdrt.signature = CENTRAL_DIRECTORY_RECORD_TAIL_SIGNATURE;
-	cdrt.disk_number = 0;
-	cdrt.central_directory_start_disk_number = 0;
-	cdrt.num_records_on_disk = num_records;
-	cdrt.num_total_records = num_records;
-	cdrt.central_directory_size = central_directory_size;
-	cdrt.central_directory_start_offset = central_directory_start_offset;
-	cdrt.comment_length = 0;
+	eoccr.signature = END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
+	eoccr.disk_number = 0;
+	eoccr.central_directory_start_disk_number = 0;
+	eoccr.num_records_on_disk = num_records;
+	eoccr.num_total_records = num_records;
+	eoccr.central_directory_size = central_directory_size;
+	eoccr.central_directory_start_offset = central_directory_start_offset;
+	eoccr.comment_length = 0;
 
-	return cdrt;
+	return eoccr;
 }
 
 static zip64_extra_field get_zip64_extra_field(zipper_file* zf) {
@@ -94,7 +94,7 @@ static zip64_extra_field get_zip64_extra_field(zipper_file* zf) {
 	if(zf->local_header_offset >= 0xFFFFFFFF)
 		z64ef.extra_fields[num_extra_fields++] = zf->local_header_offset;
 
-	z64ef.data_size = num_extra_fields * sizeof(uint64_t);
+	z64ef.data_size = sizeof(uint64_t) * num_extra_fields;
 
 	return z64ef;
 }
@@ -147,13 +147,12 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 void write_central_directory_to_zip(zipper_context* zc) {
 	uint64_t central_directory_start_offset = _GetFilePointerEx(zc->hZip);
 
-	// Write each zipper_file's central directory zipper_file header to the zip
 	while(zc->file_queue->size > 0) {
 		zipper_file* zf = queue_dequeue(zc->file_queue);
 
-		// Get the zipper_file's central directory zipper_file header and write it to the zip
-		central_directory_file_header cdfh = get_central_directory_file_header(zf);
-		_WriteFile(zc->hZip, &cdfh, sizeof(central_directory_file_header), NULL, NULL);
+		// Get the central directory header and write it to the zip
+		central_directory_header cdh = get_central_directory_header(zf);
+		_WriteFile(zc->hZip, &cdh, sizeof(central_directory_header), NULL, NULL);
 		_WriteFile(zc->hZip, zf->name, zf->name_length, NULL, NULL);
 		
 		// Write the zip64 extra field if necessary
@@ -167,9 +166,9 @@ void write_central_directory_to_zip(zipper_context* zc) {
 
 	uint64_t central_directory_size = _GetFilePointerEx(zc->hZip) - central_directory_start_offset;
 
-	// Write the central directory record tail to the zip
-	central_directory_record_tail cdrt = get_central_directory_record_tail(zc->num_records, central_directory_size, central_directory_start_offset);
-	_WriteFile(zc->hZip, &cdrt, sizeof(central_directory_record_tail), NULL, NULL);
+	// Write the end of central directory record to the zip
+	end_of_central_directory_record eoccr = get_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
+	_WriteFile(zc->hZip, &eoccr, sizeof(end_of_central_directory_record), NULL, NULL);
 }
 
 int main() {

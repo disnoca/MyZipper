@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 #define LOCAL_FILE_HEADER_SIGNATURE 			   0x04034B50
-#define CENTRAL_DIRECTORY_FILE_HEADER_SIGNATURE    0x02014B50
-#define CENTRAL_DIRECTORY_RECORD_TAIL_SIGNATURE    0x06054B50
+#define CENTRAL_DIRECTORY_HEADER_SIGNATURE    0x02014B50
+#define END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE    0x06054B50
 
 #define ZIP_VERSION  							   45
 #define WINDOWS_NTFS 							   0x0A
@@ -50,7 +50,7 @@ typedef struct {
 	//char file_name[];
 	//unsigned char extra_field[];
 	//char file_comment[];
-} __attribute__((packed)) central_directory_file_header;
+} __attribute__((packed)) central_directory_header;
 
 typedef struct {
 	uint32_t signature;
@@ -62,7 +62,7 @@ typedef struct {
 	uint32_t central_directory_start_offset;
 	uint16_t comment_length;
 	//char comment[];
-} __attribute__((packed)) central_directory_record_tail;
+} __attribute__((packed)) end_of_central_directory_record;
 
 
 /* Additional Structs */
