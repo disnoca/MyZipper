@@ -17,11 +17,13 @@ typedef struct {
     LPWSTR zip_file_name;
 	HANDLE hZip;
 
-	uint16_t num_records;
+	uint64_t num_records;
 
 	queue* file_queue;
 } zipper_context;
 
+
+/* Zip Structs Functions */
 
 static local_file_header get_file_header(zipper_file* zf) {
 	local_file_header lfh;
@@ -65,16 +67,16 @@ static central_directory_header get_central_directory_header(zipper_file* zf) {
 	return cdh;
 }
 
-static end_of_central_directory_record get_end_of_central_directory_record(uint16_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+static end_of_central_directory_record get_end_of_central_directory_record(uint64_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
 	end_of_central_directory_record eoccr;
 
 	eoccr.signature = END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
 	eoccr.disk_number = 0;
 	eoccr.central_directory_start_disk_number = 0;
-	eoccr.num_records_on_disk = num_records;
-	eoccr.num_total_records = num_records;
-	eoccr.central_directory_size = central_directory_size;
-	eoccr.central_directory_start_offset = central_directory_start_offset;
+	eoccr.num_records_on_disk = MIN(num_records, 0xFFFF);
+	eoccr.total_num_records = MIN(num_records, 0xFFFF);
+	eoccr.central_directory_size = MIN(central_directory_size, 0xFFFFFFFF);
+	eoccr.central_directory_start_offset = MIN(central_directory_start_offset, 0xFFFFFFFF);
 	eoccr.comment_length = 0;
 
 	return eoccr;
@@ -99,6 +101,37 @@ static zip64_extra_field get_zip64_extra_field(zipper_file* zf) {
 	return z64ef;
 }
 
+static zip64_end_of_central_directory_record get_zip64_end_of_central_directory_record(uint64_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+	zip64_end_of_central_directory_record z64eoccr;
+
+	z64eoccr.signature = ZIP64_END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
+	z64eoccr.size_of_remaining_zip64_end_of_central_directory_record = ZIP64_END_OF_CENTRAL_DIRECTORY_RECORD_REMAINING_FIXED_FIELDS_SIZE;
+	z64eoccr.version_made_by = (WINDOWS_NTFS << 8) | ZIP_VERSION;
+	z64eoccr.version_needed_to_extract = ZIP_VERSION;
+	z64eoccr.disk_number = 0;
+	z64eoccr.central_directory_start_disk_number = 0;
+	z64eoccr.num_records_on_disk = num_records;
+	z64eoccr.total_num_records = num_records;
+	z64eoccr.central_directory_size = central_directory_size;
+	z64eoccr.central_directory_start_offset = central_directory_start_offset;
+
+	return z64eoccr;
+}
+
+static zip64_end_of_central_directory_locator get_zip64_end_of_central_directory_locator(uint64_t zip64_end_of_central_directory_start_offset) {
+	zip64_end_of_central_directory_locator z64eoccl;
+
+	z64eoccl.signature = ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIGNATURE;
+	z64eoccl.zip64_end_of_central_directory_record_disk_number = 0;
+	z64eoccl.zip64_end_of_central_directory_record_offset = zip64_end_of_central_directory_start_offset;
+	z64eoccl.total_num_disks = 1;
+
+	return z64eoccl;
+}
+
+
+/* Main Functions */
+
 static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	/*
 	 * Add the directory's children to the zip
@@ -117,8 +150,9 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 
 	zf->local_header_offset = _GetFilePointerEx(zc->hZip);
 
+	// Calculate the zip64 extra field's length if applicable
 	if(zf->uncompressed_size >= 0xFFFFFFFF || zf->local_header_offset >= 0xFFFFFFFF)
-		zf->zip64_extra_field_length = ZIP64_EXTRA_FIELD_BASE_SIZE + sizeof(uint64_t) * (2 * (zf->uncompressed_size >= 0xFFFFFFFF) + (zf->local_header_offset >= 0xFFFFFFFF));
+		zf->zip64_extra_field_length = ZIP64_EXTRA_FIELD_FIXED_FIELDS_SIZE + sizeof(uint64_t) * (2 * (zf->uncompressed_size >= 0xFFFFFFFF) + (zf->local_header_offset >= 0xFFFFFFFF));
 
 	// Write the file's compressed data if it's not a directory
 	if(!zf->is_directory) {
@@ -144,6 +178,21 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	zc->num_records++;
 }
 
+void write_end_of_central_directory_to_zip(zipper_context* zc, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+	// Write a zip64 end of central directory record (and locator) if necessary
+	if(zc->num_records > 0xFFFF || central_directory_size > 0xFFFFFFFF || central_directory_start_offset > 0xFFFFFFFF) {
+		uint64_t zip64_end_of_central_directory_start_offset = central_directory_start_offset + central_directory_size;
+		zip64_end_of_central_directory_record z64eoccr = get_zip64_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
+		zip64_end_of_central_directory_locator z64eoccl = get_zip64_end_of_central_directory_locator(zip64_end_of_central_directory_start_offset);
+
+		_WriteFile(zc->hZip, &z64eoccr, sizeof(zip64_end_of_central_directory_record), NULL, NULL);
+		_WriteFile(zc->hZip, &z64eoccl, sizeof(zip64_end_of_central_directory_locator), NULL, NULL);
+	}
+
+	end_of_central_directory_record eoccr = get_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
+	_WriteFile(zc->hZip, &eoccr, sizeof(end_of_central_directory_record), NULL, NULL);
+}
+
 void write_central_directory_to_zip(zipper_context* zc) {
 	uint64_t central_directory_start_offset = _GetFilePointerEx(zc->hZip);
 
@@ -166,9 +215,7 @@ void write_central_directory_to_zip(zipper_context* zc) {
 
 	uint64_t central_directory_size = _GetFilePointerEx(zc->hZip) - central_directory_start_offset;
 
-	// Write the end of central directory record to the zip
-	end_of_central_directory_record eoccr = get_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
-	_WriteFile(zc->hZip, &eoccr, sizeof(end_of_central_directory_record), NULL, NULL);
+	write_end_of_central_directory_to_zip(zc, central_directory_size, central_directory_start_offset);
 }
 
 int main() {
