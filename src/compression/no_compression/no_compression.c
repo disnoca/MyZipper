@@ -8,6 +8,8 @@
 
 #define BUFFER_SIZE 4096
 
+#define MIN_SIZE_FOR_CONCURRENCY 10 * 1024 * 1024	// 10 MB
+
 typedef struct {
 	LPWSTR origin_name, dest_name;
 	uint64_t origin_offset, dest_offset;
@@ -48,7 +50,7 @@ DWORD WINAPI thread_file_write(void* data) {
 		}
 
 		/*
-		 * It's fine to "wait" here instead of continuing with the next iteration because the CRC32 calculation
+		 * It's fine to "wait" here instead of continuing with the next iteration because the CRC calculation
 		 * takes so much time that by the time it's done the write has already completed.
 		*/
 		_GetOverlappedResult(hDest, &overlapped, &batch_size, TRUE);

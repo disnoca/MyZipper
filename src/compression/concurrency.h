@@ -3,8 +3,6 @@
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 
-#define MIN_SIZE_FOR_CONCURRENCY 1048576	// 1 MB
-
 /**
  * Returns the number of cores in the system.
  * 
