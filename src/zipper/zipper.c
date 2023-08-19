@@ -7,14 +7,10 @@
 #include "queue.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
-
- #define MIN(a,b) \
-	({ __typeof__ (a) _a = (a); \
-    	__typeof__ (b) _b = (b); \
-    	_a < _b ? _a : _b; })
+#include "../macros.h"
 
 typedef struct {
-    LPWSTR zip_file_name;
+    LPWSTR zip_name;
 	HANDLE hZip;
 
 	uint64_t num_records;
@@ -157,7 +153,7 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	// Write the file's compressed data if it's not a directory
 	if(!zf->is_directory) {
 		uint64_t header_size = sizeof(local_file_header) + zf->name_length + zf->zip64_extra_field_length;
-		zfile_compress_and_write(zf, zc->zip_file_name, zf->local_header_offset + header_size);
+		zfile_compress_and_write(zf, zc->zip_name, zf->local_header_offset + header_size);
 	}
 
 	// Write the header
@@ -178,7 +174,7 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	zc->num_records++;
 }
 
-void write_end_of_central_directory_to_zip(zipper_context* zc, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+static void write_end_of_central_directory_to_zip(zipper_context* zc, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
 	// Write a zip64 end of central directory record (and locator) if necessary
 	if(zc->num_records > 0xFFFF || central_directory_size > 0xFFFFFFFF || central_directory_start_offset > 0xFFFFFFFF) {
 		uint64_t zip64_end_of_central_directory_start_offset = central_directory_start_offset + central_directory_size;
@@ -193,7 +189,7 @@ void write_end_of_central_directory_to_zip(zipper_context* zc, uint64_t central_
 	_WriteFile(zc->hZip, &eoccr, sizeof(end_of_central_directory_record), NULL, NULL);
 }
 
-void write_central_directory_to_zip(zipper_context* zc) {
+static void write_central_directory_to_zip(zipper_context* zc) {
 	uint64_t central_directory_start_offset = _GetFilePointerEx(zc->hZip);
 
 	while(zc->file_queue->size > 0) {
@@ -224,8 +220,8 @@ int main() {
 
 	zipper_context zc = {0};
 
-	zc.zip_file_name = argv[1];
-	zc.hZip = _CreateFileW(zc.zip_file_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	zc.zip_name = argv[1];
+	zc.hZip = _CreateFileW(zc.zip_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 
 	zc.file_queue = queue_create();
 
