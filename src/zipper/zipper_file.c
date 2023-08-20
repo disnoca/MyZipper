@@ -33,9 +33,9 @@ static void get_file_name(zipper_file* zf, LPWSTR path) {
 	}
 
 	// Convert name to UTF-8
-	zf->name_length = _WideCharToMultiByte(CP_UTF8, 0, zf->wide_char_name, -1, NULL, 0, NULL, NULL);
+	zf->name_length = _WideCharToMultiByte(CP_UTF8, 0, zf->wide_char_name, -1, NULL, 0, NULL, NULL) - 1;
 	zf->name = Malloc(zf->name_length + 1);
-	_WideCharToMultiByte(CP_UTF8, 0, zf->wide_char_name, wide_char_name_length + 1, zf->name, zf->name_length + 1, NULL, NULL);
+	_WideCharToMultiByte(CP_UTF8, 0, zf->wide_char_name, -1, zf->name, zf->name_length + 1, NULL, NULL);
 }
 
 static void get_file_size(zipper_file* zf) {

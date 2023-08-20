@@ -47,4 +47,4 @@ $linkCommand = "gcc {0} -o {1}" -f ($objectFiles -join " "), (Join-Path -Path $b
 Write-Host "Linking object files"
 Invoke-Expression -Command $linkCommand
 
-Write-Host "Compilation and linking completed."
+Write-Host "Compilation and linking completed"
