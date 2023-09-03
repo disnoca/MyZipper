@@ -9,7 +9,7 @@
 
 #define ZIP_VERSION  							  	45
 #define WINDOWS_NTFS 							  	0x0A
-#define UTF8_ENCODING 							  	1 << 11
+#define UTF8_ENCODING 							  	(1 << 11)
 
 /* Zip Structs */
 
@@ -72,8 +72,8 @@ typedef struct {
 #define ZIP64_END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE 					0x06064B50
 #define ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIGNATURE 					0x07064B50
 
-#define ZIP64_EXTRA_FIELD_FIXED_FIELDS_SIZE 								sizeof(uint16_t) * 2
-#define ZIP64_END_OF_CENTRAL_DIRECTORY_RECORD_REMAINING_FIXED_FIELDS_SIZE 	sizeof(uint16_t) * 2 + sizeof(uint32_t) * 2 + sizeof(uint64_t) * 4
+#define ZIP64_EXTRA_FIELD_FIXED_FIELDS_SIZE 								(sizeof(uint16_t) * 2)
+#define ZIP64_END_OF_CENTRAL_DIRECTORY_RECORD_REMAINING_FIXED_FIELDS_SIZE 	(sizeof(uint16_t) * 2 + sizeof(uint32_t) * 2 + sizeof(uint64_t) * 4)
 
 typedef struct {
 	uint16_t header_id;

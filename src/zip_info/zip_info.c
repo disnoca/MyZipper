@@ -10,9 +10,9 @@
 
 #define SEARCH_BUFFER_SIZE 										1024
 #define MAX_COMMENT_SIZE 										0xFFFF
-#define MAX_SEARCH_ITERATIONS 									MAX_COMMENT_SIZE / SEARCH_BUFFER_SIZE
+#define MAX_SEARCH_ITERATIONS 									(MAX_COMMENT_SIZE / SEARCH_BUFFER_SIZE)
 
-#define END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE_FIRST_BYTE 	END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE & 0xFF
+#define END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE_FIRST_BYTE 	(END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE & 0xFF)
 
 
 /* Helper Functions */
@@ -40,25 +40,33 @@ static end_of_central_directory_record get_end_of_central_directory_record(HANDL
 	if(eocdr.signature == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE)
 		return eocdr;
 
-	eocdr = (end_of_central_directory_record){0};
 	uint8_t* buffer = Malloc(SEARCH_BUFFER_SIZE);
 	uint32_t signature = END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
 
 	// Work backwards in batches until signature is found, file ends or end of central directory record's max size is reached
-	for(int i = 0; li.QuadPart > 0 && i < MAX_SEARCH_ITERATIONS; i++) {
-		li.QuadPart = MAX(li.QuadPart - SEARCH_BUFFER_SIZE, 0);
-		_SetFilePointerEx(hZip, li, &li, FILE_BEGIN);
-		_ReadFile(hZip, buffer, SEARCH_BUFFER_SIZE, NULL, NULL);
+	for(int i = 0; li.QuadPart > 1 && i < MAX_SEARCH_ITERATIONS; i++) {
+		li.QuadPart = MAX(li.QuadPart - SEARCH_BUFFER_SIZE, 1);
+		_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
+		_ReadFile(hZip, buffer, SEARCH_BUFFER_SIZE + 3, NULL, NULL);
 
-		for(int i = 0; i < SEARCH_BUFFER_SIZE; i++)
-			if(buffer[i] == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE_FIRST_BYTE && !memcmp(buffer, &signature, sizeof(uint32_t))) {
-				memcpy(&eocdr, buffer + i, sizeof(end_of_central_directory_record));
-				break;
+		for(int j = 0; j < SEARCH_BUFFER_SIZE; j++)
+			if(buffer[j] == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE_FIRST_BYTE && !memcmp(buffer + j, &signature, sizeof(uint32_t))) {
+				// buffer might not have all the necessary data, in which case read it from file
+				if(j <= SEARCH_BUFFER_SIZE - sizeof(end_of_central_directory_record))
+					memcpy(&eocdr, buffer + j, sizeof(end_of_central_directory_record));
+				else {
+					li.QuadPart += j;
+					_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
+					_ReadFile(hZip, &eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
+				}
+
+				Free(buffer);
+				return eocdr;
 			}
 	}
 	
 	Free(buffer);
-	return eocdr;
+	return (end_of_central_directory_record){0};
 }
 
 
@@ -75,7 +83,11 @@ static void read_central_directory(HANDLE hZip) {
 
 	// Set file pointer to the start of the central directory
 	LARGE_INTEGER li = {.QuadPart = eocdr.central_directory_start_offset};
-	_SetFilePointerEx(hZip, li, &li, FILE_BEGIN);
+	_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
+
+	printf("%u\n", eocdr.central_directory_size);
+	printf("%u\n", eocdr.central_directory_start_offset);
+	printf("%hu\n", eocdr.comment_length);
 
 	central_directory_header cdr;
 	char *file_name = NULL, *comment = NULL;
