@@ -110,15 +110,20 @@ static uint32_t file_write(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin
 	return crc32;
 }
 
-void no_compression_compress(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset) {
-	zf->compressed_size = zf->uncompressed_size;
-	zf->crc32 = file_write(zf->wide_char_name, dest_name, 0, dest_offset, zf->uncompressed_size);
+compression_result no_compression_compress(LPWSTR origin_name, LPWSTR dest_name, uint64_t dest_offset, uint64_t file_size) {
+	compression_result cr;
+
+	cr.destination_size = file_size;
+	cr.crc32 = file_write(origin_name, dest_name, 0, dest_offset, file_size);
+
+	return cr;
 }
 
-void no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size) {
-	// Create destination file
-	HANDLE hDest = _CreateFileW(dest_name, GENERIC_WRITE, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL);
-	_CloseHandle(hDest);
+compression_result no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size) {
+	compression_result cr;
 
-	file_write(origin_name, dest_name, origin_offset, 0, file_size);
+	cr.destination_size = file_size;
+	cr.crc32 = file_write(origin_name, dest_name, origin_offset, 0, file_size);
+
+	return cr;
 }

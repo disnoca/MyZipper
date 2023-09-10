@@ -43,9 +43,7 @@ static void get_file_size(zipper_file* zf) {
 
 static void get_compression_function_and_size(zipper_file* zf) {
 	switch(zf->compression_method) {
-		case(NO_COMPRESSION): 
-			zf->compression_func = no_compression_compress;
-			break;
+		case(NO_COMPRESSION): zf->compression_func = no_compression_compress; break;
 	}
 }
 
@@ -116,8 +114,6 @@ static void get_file_mod_time(zipper_file* zf) {
 
 zipper_file* zfile_create(LPWSTR path, unsigned compression_method) {
 	zipper_file* zf = Calloc(1, sizeof(zipper_file));
-
-	zf->compression_method = compression_method;
 	
 	zf->windows_file_attributes = _GetFileAttributesW(path);
 	zf->is_directory = zf->windows_file_attributes & FILE_ATTRIBUTE_DIRECTORY;
@@ -129,12 +125,13 @@ zipper_file* zfile_create(LPWSTR path, unsigned compression_method) {
 	else {
 		zf->hFile = _CreateFileW(path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		get_file_size(zf);
-		get_compression_function_and_size(zf);
 		get_file_mod_time(zf);
 	}
 
-	if(zf->uncompressed_size == 0)
-		zf->compression_method = NO_COMPRESSION;
+	if(zf->uncompressed_size > 0) {
+		zf->compression_method = compression_method;
+		get_compression_function_and_size(zf);
+	}
 
     return zf;
 }
@@ -151,6 +148,10 @@ void zfile_destroy(zipper_file* zf) {
 }
 
 void zfile_compress_and_write(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset) {
-	if(zf->uncompressed_size > 0)
-		zf->compression_func(zf, dest_name, dest_offset);
+	if(zf->uncompressed_size == 0)
+		return;
+
+	compression_result cr = zf->compression_func(zf->wide_char_name, dest_name, dest_offset, zf->uncompressed_size);
+	zf->compressed_size = cr.destination_size;
+	zf->crc32 = cr.crc32;
 }

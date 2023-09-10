@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <windows.h>
 #include "../zip.h"
+#include "../compression/compression.h"
 
 typedef struct zipper_file zipper_file;
 
@@ -23,7 +24,7 @@ struct zipper_file {
 	uint32_t crc32;
 	uint64_t local_header_offset;
 	uint16_t zip64_extra_field_length;
-	void (*compression_func)(zipper_file* zf, LPWSTR dest_name, uint64_t dest_offset);
+	compression_result (*compression_func)(LPWSTR origin_name, LPWSTR dest_name, uint64_t dest_offset, uint64_t file_size);
 };
 
 /**
