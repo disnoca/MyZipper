@@ -9,10 +9,6 @@
 
 /* Helper Functions */
 
-static bool is_directory(LPWSTR path) {
-	return _GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY;
-}
-
 static void get_file_name(zipper_file* zf, LPWSTR path) {
 	// Cut out preceding dot and slash if in path
 	if(path[0] == L'.' && path[1] == L'\\')
@@ -122,7 +118,9 @@ zipper_file* zfile_create(LPWSTR path, unsigned compression_method) {
 	zipper_file* zf = Calloc(1, sizeof(zipper_file));
 
 	zf->compression_method = compression_method;
-	zf->is_directory = is_directory(path);
+	
+	zf->windows_file_attributes = _GetFileAttributesW(path);
+	zf->is_directory = zf->windows_file_attributes & FILE_ATTRIBUTE_DIRECTORY;
 
 	get_file_name(zf, path);
 
@@ -134,6 +132,9 @@ zipper_file* zfile_create(LPWSTR path, unsigned compression_method) {
 		get_compression_function_and_size(zf);
 		get_file_mod_time(zf);
 	}
+
+	if(zf->uncompressed_size == 0)
+		zf->compression_method = NO_COMPRESSION;
 
     return zf;
 }

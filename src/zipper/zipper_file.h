@@ -9,6 +9,7 @@
 typedef struct zipper_file zipper_file;
 
 struct zipper_file {
+	uint8_t windows_file_attributes;
 	bool is_directory;
 	unsigned num_children;
 	zipper_file** children;

@@ -57,7 +57,7 @@ static central_directory_header get_central_directory_header(zipper_file* zf) {
 	cdh.file_comment_length = 0;
 	cdh.disk_number_start = 0;
 	cdh.internal_file_attributes = 0;
-	cdh.external_file_attributes = 0;
+	cdh.external_file_attributes = zf->windows_file_attributes;
 	cdh.local_header_offset = MIN(zf->local_header_offset, 0xFFFFFFFF);
 
 	return cdh;
@@ -150,8 +150,8 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	if(zf->uncompressed_size >= 0xFFFFFFFF || zf->local_header_offset >= 0xFFFFFFFF)
 		zf->zip64_extra_field_length = ZIP64_EXTRA_FIELD_FIXED_FIELDS_SIZE + sizeof(uint64_t) * (2 * (zf->uncompressed_size >= 0xFFFFFFFF) + (zf->local_header_offset >= 0xFFFFFFFF));
 
-	// Write the file's compressed data if it's not a directory
-	if(!zf->is_directory) {
+	// Write the file's compressed data if it's not empty
+	if(zf->uncompressed_size > 0) {
 		uint64_t header_size = sizeof(local_file_header) + zf->name_length + zf->zip64_extra_field_length;
 		zfile_compress_and_write(zf, zc->zip_name, zf->local_header_offset + header_size);
 	}
@@ -167,7 +167,7 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 		_WriteFile(zc->hZip, &z64ef, zf->zip64_extra_field_length, NULL, NULL);
 	}
 
-	if(!zf->is_directory) 
+	if(zf->uncompressed_size > 0) 
 		// Advance the file pointer back to the end of the file's data
 		_SetFilePointerEx(zc->hZip, (LARGE_INTEGER){.QuadPart = zf->compressed_size}, NULL, FILE_CURRENT);
 
