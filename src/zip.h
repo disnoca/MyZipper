@@ -2,6 +2,7 @@
 #define _ZIP_H
 
 #include <stdint.h>
+#include <windows.h>
 
 #define LOCAL_FILE_HEADER_SIGNATURE 			   	0x04034B50
 #define CENTRAL_DIRECTORY_HEADER_SIGNATURE    		0x02014B50
@@ -101,5 +102,16 @@ typedef struct {
 	uint64_t zip64_end_of_central_directory_record_offset;
 	uint32_t total_num_disks;
 } __attribute__((packed)) zip64_end_of_central_directory_locator;
+
+
+// Functions
+
+/**
+ * Returns the end of central directory record of the specified zip file. If not found, returns an empty struct.
+ * 
+ * @param zip_name the name of the zip file
+ * @return if found, the end of central directory record of the specified zip file, outherwise, an empty struct
+*/
+end_of_central_directory_record find_end_of_central_directory_record(LPWSTR zip_name);
 
 #endif

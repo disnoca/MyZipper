@@ -14,26 +14,26 @@ typedef compression_result decompression_result;
 
 /**
  * Copies data from the specified origin file to the specified destination file and
- * returns the operation result.
+ * returns the compression result.
  * 
  * @param origin_name the name of the origin file
  * @param dest_name the name of the destination file
  * @param dest_offset the offset in the destination file to start writing data to
  * @param file_size the number of bytes to copy
- * @return the operation result
+ * @return the compression result
 */
 compression_result no_compression_compress(LPWSTR origin_name, LPWSTR dest_name, uint64_t dest_offset, uint64_t file_size);
 
 /**
  * Copies data from the specified origin file to the specified destination file
- * and returns the operation result.
+ * and returns the file's crc32.
  * 
  * @param origin_name the name of the origin file
  * @param dest_name the name of the destination file
  * @param origin_offset the offset in the origin file to start reading data from
  * @param file_size the number of bytes to copy
- * @return the operation result
+ * @return the file's crc32
 */
-compression_result no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size);
+uint32_t no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size);
 
 #endif

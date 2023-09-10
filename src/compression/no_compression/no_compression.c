@@ -119,11 +119,6 @@ compression_result no_compression_compress(LPWSTR origin_name, LPWSTR dest_name,
 	return cr;
 }
 
-compression_result no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size) {
-	compression_result cr;
-
-	cr.destination_size = file_size;
-	cr.crc32 = file_write(origin_name, dest_name, origin_offset, 0, file_size);
-
-	return cr;
+uint32_t no_compression_decompress(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t file_size) {
+	return file_write(origin_name, dest_name, origin_offset, 0, file_size);
 }
