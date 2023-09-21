@@ -1,8 +1,15 @@
 ## TODO
-Programs:
+General:
+- errors codes and ways to handle them
+
+Zipper:
+
+Zip info:
+
+Unzipper:
+
+Other programs:
 - zip consistency checker
-- zip info 
-- unzipper
 - remover
 - appender
 - extactor

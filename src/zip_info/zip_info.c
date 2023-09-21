@@ -25,6 +25,7 @@ static void read_central_directory(HANDLE hZip, end_of_central_directory_record 
 
 	central_directory_header cdr;
 	char *file_name = NULL, *comment = NULL;
+	void *extra_field = NULL;
 
 	// Iterate over the central directory records
 	for(uint16_t i = 0; i < eocdr.total_num_records; i++) {
@@ -43,8 +44,10 @@ static void read_central_directory(HANDLE hZip, end_of_central_directory_record 
 			file_name[cdr.file_name_length] = '\0';
 		}
 
-		if(cdr.extra_field_length > 0)
-			_ReadFile(hZip, NULL, cdr.extra_field_length, NULL, NULL);
+		if(cdr.extra_field_length > 0) {
+			extra_field = Realloc(extra_field, cdr.extra_field_length);
+			_ReadFile(hZip, extra_field, cdr.extra_field_length, NULL, NULL);
+		}
 
 		if(cdr.file_comment_length > 0) {
 			comment = Realloc(comment, cdr.file_comment_length + 1);
@@ -71,7 +74,6 @@ static void read_central_directory(HANDLE hZip, end_of_central_directory_record 
 int main() {
 	int argc;
 	LPWSTR* argv = _CommandLineToArgvW(GetCommandLineW(), &argc);
-
 
 	LPWSTR zip_name = argv[1];
 	HANDLE hZip = _CreateFileW(zip_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
