@@ -15,9 +15,9 @@ struct zipper_file {
 	unsigned num_children;
 	zipper_file** children;
 	HANDLE hFile;
-	char* name;
-	uint16_t name_length;
-	LPWSTR wide_char_name;
+	char* utf8_name;
+	uint16_t utf8_name_length;
+	LPWSTR utf16_name;
 	uint64_t uncompressed_size, compressed_size;
 	uint16_t compression_method;
 	uint16_t mod_time, mod_date;

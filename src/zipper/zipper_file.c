@@ -19,19 +19,19 @@ static void get_file_name(zipper_file* zf, LPWSTR path) {
 
 	// Copy path to wide_char_name
 	unsigned wide_char_name_length = path_length + needs_trailing_slash;
-	zf->wide_char_name = Malloc((wide_char_name_length + 1) * sizeof(WCHAR));
-	memcpy(zf->wide_char_name, path, (path_length + 1) * sizeof(WCHAR));
+	zf->utf16_name = Malloc((wide_char_name_length + 1) * sizeof(WCHAR));
+	memcpy(zf->utf16_name, path, (path_length + 1) * sizeof(WCHAR));
 
 	// Add a trailing slash if directory is missing one
 	if(needs_trailing_slash) {
-		zf->wide_char_name[wide_char_name_length - 1] = L'\\';
-		zf->wide_char_name[wide_char_name_length] = L'\0';
+		zf->utf16_name[wide_char_name_length - 1] = L'\\';
+		zf->utf16_name[wide_char_name_length] = L'\0';
 	}
 
 	// Convert name to UTF-8
-	zf->name_length = _WideCharToMultiByte(CP_UTF8, 0, zf->wide_char_name, -1, NULL, 0, NULL, NULL) - 1;
-	zf->name = Malloc(zf->name_length + 1);
-	_WideCharToMultiByte(CP_UTF8, 0, zf->wide_char_name, -1, zf->name, zf->name_length + 1, NULL, NULL);
+	zf->utf8_name_length = _WideCharToMultiByte(CP_UTF8, 0, zf->utf16_name, -1, NULL, 0, NULL, NULL) - 1;
+	zf->utf8_name = Malloc(zf->utf8_name_length + 1);
+	_WideCharToMultiByte(CP_UTF8, 0, zf->utf16_name, -1, zf->utf8_name, zf->utf8_name_length + 1, NULL, NULL);
 }
 
 static void get_file_size(zipper_file* zf) {
@@ -50,11 +50,11 @@ static void get_compression_function_and_size(zipper_file* zf) {
 static void get_file_children(zipper_file* zf) {
 	WIN32_FIND_DATAW fdFile;
 
-	unsigned path_length = wcslen(zf->wide_char_name);
+	unsigned path_length = wcslen(zf->utf16_name);
 
 	// Append "*" to path to get all files in directory
 	WCHAR path[path_length + 2];
-	memcpy(path, zf->wide_char_name, path_length * sizeof(WCHAR));
+	memcpy(path, zf->utf16_name, path_length * sizeof(WCHAR));
 	memcpy(path + path_length, L"*", 2 * sizeof(WCHAR));
 
 	// First two zipper_file finds will always return "." and ".."
@@ -75,7 +75,7 @@ static void get_file_children(zipper_file* zf) {
 		// Copy path and found zipper_file name into buffer
 		unsigned file_name_length = path_length + wcslen(fdFile.cFileName) + 1;
 		WCHAR file_name[file_name_length];
-		memcpy(file_name, zf->wide_char_name, path_length * sizeof(WCHAR));
+		memcpy(file_name, zf->utf16_name, path_length * sizeof(WCHAR));
 		memcpy(file_name + path_length, fdFile.cFileName, (file_name_length - path_length) * sizeof(WCHAR));
 
 		/*
@@ -142,8 +142,8 @@ void zfile_destroy(zipper_file* zf) {
 	else
 		_CloseHandle(zf->hFile);
 
-	Free(zf->name);
-	Free(zf->wide_char_name);
+	Free(zf->utf8_name);
+	Free(zf->utf16_name);
 	Free(zf);
 }
 
@@ -151,7 +151,7 @@ void zfile_compress_and_write(zipper_file* zf, LPWSTR dest_name, uint64_t dest_o
 	if(zf->uncompressed_size == 0)
 		return;
 
-	compression_result cr = zf->compression_func(zf->wide_char_name, dest_name, dest_offset, zf->uncompressed_size);
+	compression_result cr = zf->compression_func(zf->utf16_name, dest_name, dest_offset, zf->uncompressed_size);
 	zf->compressed_size = cr.destination_size;
 	zf->crc32 = cr.crc32;
 }

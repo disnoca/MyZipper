@@ -33,7 +33,7 @@ static local_file_header get_file_header(zipper_file* zf) {
 	lfh.crc32 = zf->crc32;
 	lfh.compressed_size = zf->uncompressed_size >= 0xFFFFFFFF ? 0xFFFFFFFF : zf->compressed_size;
 	lfh.uncompressed_size = MIN(zf->uncompressed_size, 0xFFFFFFFF);
-	lfh.file_name_length = zf->name_length;
+	lfh.file_name_length = zf->utf8_name_length;
 	lfh.extra_field_length = zf->zip64_extra_field_length;
 
 	return lfh;
@@ -52,7 +52,7 @@ static central_directory_header get_central_directory_header(zipper_file* zf) {
 	cdh.crc32 = zf->crc32;
 	cdh.compressed_size = zf->uncompressed_size >= 0xFFFFFFFF ? 0xFFFFFFFF : zf->compressed_size;
 	cdh.uncompressed_size = MIN(zf->uncompressed_size, 0xFFFFFFFF);
-	cdh.file_name_length = zf->name_length;
+	cdh.file_name_length = zf->utf8_name_length;
 	cdh.extra_field_length = zf->zip64_extra_field_length;
 	cdh.file_comment_length = 0;
 	cdh.disk_number_start = 0;
@@ -152,14 +152,14 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 
 	// Write the file's compressed data if it's not empty
 	if(zf->uncompressed_size > 0) {
-		uint64_t header_size = sizeof(local_file_header) + zf->name_length + zf->zip64_extra_field_length;
+		uint64_t header_size = sizeof(local_file_header) + zf->utf8_name_length + zf->zip64_extra_field_length;
 		zfile_compress_and_write(zf, zc->zip_name, zf->local_header_offset + header_size);
 	}
 
 	// Write the header
 	local_file_header lfh = get_file_header(zf);
 	_WriteFile(zc->hZip, &lfh, sizeof(local_file_header), NULL, NULL);
-	_WriteFile(zc->hZip, zf->name, zf->name_length, NULL, NULL);
+	_WriteFile(zc->hZip, zf->utf8_name, zf->utf8_name_length, NULL, NULL);
 
 	// Write the zip64 extra field if necessary
 	if(zf->zip64_extra_field_length > 0) {
@@ -198,7 +198,7 @@ static void write_central_directory_to_zip(zipper_context* zc) {
 		// Get the central directory header and write it to the zip
 		central_directory_header cdh = get_central_directory_header(zf);
 		_WriteFile(zc->hZip, &cdh, sizeof(central_directory_header), NULL, NULL);
-		_WriteFile(zc->hZip, zf->name, zf->name_length, NULL, NULL);
+		_WriteFile(zc->hZip, zf->utf8_name, zf->utf8_name_length, NULL, NULL);
 		
 		// Write the zip64 extra field if necessary
 		if(zf->zip64_extra_field_length > 0) {
