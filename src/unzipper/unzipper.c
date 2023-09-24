@@ -113,7 +113,7 @@ int main() {
 		_SetFilePointerEx(hZip, li, NULL, FILE_CURRENT);
 	}
 
-	printf("Done.\n");
+	printf("Done\n");
 
 	_CloseHandle(hZip);
 	return 0;

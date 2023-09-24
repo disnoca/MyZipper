@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <windows.h>
 #include "../zip.h"
 #include "zipper_file.h"
@@ -21,7 +22,7 @@ typedef struct {
 
 /* Zip Structs Functions */
 
-static local_file_header get_file_header(zipper_file* zf) {
+static local_file_header create_file_header(zipper_file* zf) {
 	local_file_header lfh;
 
 	lfh.signature = LOCAL_FILE_HEADER_SIGNATURE;
@@ -39,7 +40,7 @@ static local_file_header get_file_header(zipper_file* zf) {
 	return lfh;
 }
 
-static central_directory_header get_central_directory_header(zipper_file* zf) {
+static central_directory_header create_central_directory_header(zipper_file* zf) {
 	central_directory_header cdh;
 
 	cdh.signature = CENTRAL_DIRECTORY_HEADER_SIGNATURE;
@@ -63,7 +64,7 @@ static central_directory_header get_central_directory_header(zipper_file* zf) {
 	return cdh;
 }
 
-static end_of_central_directory_record get_end_of_central_directory_record(uint64_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+static end_of_central_directory_record create_end_of_central_directory_record(uint64_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
 	end_of_central_directory_record eoccr;
 
 	eoccr.signature = END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
@@ -78,7 +79,7 @@ static end_of_central_directory_record get_end_of_central_directory_record(uint6
 	return eoccr;
 }
 
-static zip64_extra_field get_zip64_extra_field(zipper_file* zf) {
+static zip64_extra_field create_zip64_extra_field(zipper_file* zf) {
 	zip64_extra_field z64ef;
 	unsigned char num_extra_fields = 0;
 
@@ -97,7 +98,7 @@ static zip64_extra_field get_zip64_extra_field(zipper_file* zf) {
 	return z64ef;
 }
 
-static zip64_end_of_central_directory_record get_zip64_end_of_central_directory_record(uint64_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
+static zip64_end_of_central_directory_record create_zip64_end_of_central_directory_record(uint64_t num_records, uint64_t central_directory_size, uint64_t central_directory_start_offset) {
 	zip64_end_of_central_directory_record z64eoccr;
 
 	z64eoccr.signature = ZIP64_END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
@@ -114,7 +115,7 @@ static zip64_end_of_central_directory_record get_zip64_end_of_central_directory_
 	return z64eoccr;
 }
 
-static zip64_end_of_central_directory_locator get_zip64_end_of_central_directory_locator(uint64_t zip64_end_of_central_directory_start_offset) {
+static zip64_end_of_central_directory_locator create_zip64_end_of_central_directory_locator(uint64_t zip64_end_of_central_directory_start_offset) {
 	zip64_end_of_central_directory_locator z64eoccl;
 
 	z64eoccl.signature = ZIP64_END_OF_CENTRAL_DIRECTORY_LOCATOR_SIGNATURE;
@@ -129,18 +130,7 @@ static zip64_end_of_central_directory_locator get_zip64_end_of_central_directory
 /* Main Functions */
 
 static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
-	/*
-	 * Add the directory's children to the zip
-	 * This will recursively add all the files containted in the directory
-	 * Directories are not written to the zip unless they're empty
-	*/
-	if(zf->is_directory && zf->num_children > 0) {
-		for(unsigned i = 0; i < zf->num_children; i++)
-			write_file_to_zip(zc, zf->children[i]);
-
-		zfile_destroy(zf);
-		return;
-	}
+	printf("Writing %ls to zip\n", zf->utf16_name);
 
 	queue_enqueue(zc->file_queue, zf);
 
@@ -157,19 +147,24 @@ static void write_file_to_zip(zipper_context* zc, zipper_file* zf) {
 	}
 
 	// Write the header
-	local_file_header lfh = get_file_header(zf);
+	local_file_header lfh = create_file_header(zf);
 	_WriteFile(zc->hZip, &lfh, sizeof(local_file_header), NULL, NULL);
 	_WriteFile(zc->hZip, zf->utf8_name, zf->utf8_name_length, NULL, NULL);
 
 	// Write the zip64 extra field if necessary
 	if(zf->zip64_extra_field_length > 0) {
-		zip64_extra_field z64ef = get_zip64_extra_field(zf);
+		zip64_extra_field z64ef = create_zip64_extra_field(zf);
 		_WriteFile(zc->hZip, &z64ef, zf->zip64_extra_field_length, NULL, NULL);
 	}
 
 	if(zf->uncompressed_size > 0) 
 		// Advance the file pointer back to the end of the file's data
 		_SetFilePointerEx(zc->hZip, (LARGE_INTEGER){.QuadPart = zf->compressed_size}, NULL, FILE_CURRENT);
+	
+	// Write any children if any
+	if(zf->num_children > 0)
+		for(unsigned i = 0; i < zf->num_children; i++)
+			write_file_to_zip(zc, zf->children[i]);
 
 	zc->num_records++;
 }
@@ -178,14 +173,14 @@ static void write_end_of_central_directory_to_zip(zipper_context* zc, uint64_t c
 	// Write a zip64 end of central directory record (and locator) if necessary
 	if(zc->num_records > 0xFFFF || central_directory_size > 0xFFFFFFFF || central_directory_start_offset > 0xFFFFFFFF) {
 		uint64_t zip64_end_of_central_directory_start_offset = central_directory_start_offset + central_directory_size;
-		zip64_end_of_central_directory_record z64eoccr = get_zip64_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
-		zip64_end_of_central_directory_locator z64eoccl = get_zip64_end_of_central_directory_locator(zip64_end_of_central_directory_start_offset);
+		zip64_end_of_central_directory_record z64eoccr = create_zip64_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
+		zip64_end_of_central_directory_locator z64eoccl = create_zip64_end_of_central_directory_locator(zip64_end_of_central_directory_start_offset);
 
 		_WriteFile(zc->hZip, &z64eoccr, sizeof(zip64_end_of_central_directory_record), NULL, NULL);
 		_WriteFile(zc->hZip, &z64eoccl, sizeof(zip64_end_of_central_directory_locator), NULL, NULL);
 	}
 
-	end_of_central_directory_record eoccr = get_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
+	end_of_central_directory_record eoccr = create_end_of_central_directory_record(zc->num_records, central_directory_size, central_directory_start_offset);
 	_WriteFile(zc->hZip, &eoccr, sizeof(end_of_central_directory_record), NULL, NULL);
 }
 
@@ -196,13 +191,13 @@ static void write_central_directory_to_zip(zipper_context* zc) {
 		zipper_file* zf = queue_dequeue(zc->file_queue);
 
 		// Get the central directory header and write it to the zip
-		central_directory_header cdh = get_central_directory_header(zf);
+		central_directory_header cdh = create_central_directory_header(zf);
 		_WriteFile(zc->hZip, &cdh, sizeof(central_directory_header), NULL, NULL);
 		_WriteFile(zc->hZip, zf->utf8_name, zf->utf8_name_length, NULL, NULL);
 		
 		// Write the zip64 extra field if necessary
 		if(zf->zip64_extra_field_length > 0) {
-			zip64_extra_field z64ef = get_zip64_extra_field(zf);
+			zip64_extra_field z64ef = create_zip64_extra_field(zf);
 			_WriteFile(zc->hZip, &z64ef, zf->zip64_extra_field_length, NULL, NULL);
 		}
 		
@@ -230,10 +225,13 @@ int main() {
 		write_file_to_zip(&zc, zf);
 	}
 
+	printf("Writing central directory to zip\n");
+
 	write_central_directory_to_zip(&zc);
+
+	printf("Done\n");
 
 	Free(zc.file_queue);
 	_CloseHandle(zc.hZip);
-
 	return 0;
 }

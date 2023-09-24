@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdbool.h>
 #include <windows.h>
 #include "zipper_file.h"
@@ -117,6 +118,8 @@ static void get_file_mod_time(zipper_file* zf) {
 /* Header Implementations */
 
 zipper_file* zfile_create(LPWSTR path, unsigned compression_method) {
+	printf("Creating zipper_file for %ls\n", path);
+
 	zipper_file* zf = Calloc(1, sizeof(zipper_file));
 	
 	zf->windows_file_attributes = _GetFileAttributesW(path);

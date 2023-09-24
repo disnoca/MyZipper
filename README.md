@@ -3,7 +3,6 @@ General:
 - errors codes and ways to handle them
 
 Zipper:
-- add records for intermediate directories
 
 Zip info:
 
