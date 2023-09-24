@@ -3,6 +3,7 @@
 #include "zipper_file.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
+#include "../utils.h"
 
 #define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
 
@@ -32,6 +33,9 @@ static void get_file_name(zipper_file* zf, LPWSTR path) {
 	zf->utf8_name_length = _WideCharToMultiByte(CP_UTF8, 0, zf->utf16_name, -1, NULL, 0, NULL, NULL) - 1;
 	zf->utf8_name = Malloc(zf->utf8_name_length + 1);
 	_WideCharToMultiByte(CP_UTF8, 0, zf->utf16_name, -1, zf->utf8_name, zf->utf8_name_length + 1, NULL, NULL);
+
+	// Replace backward slashes with forward slashes in UTF-8 name (the one written to the ZIP file)
+	replace_char(zf->utf8_name, '\\', '/');
 }
 
 static void get_file_size(zipper_file* zf) {

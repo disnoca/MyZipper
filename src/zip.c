@@ -1,5 +1,5 @@
 #include "zip.h"
-#include "macros.h"
+#include "utils.h"
 #include "wrapper_functions.h"
 
 #define SEARCH_BUFFER_SIZE 										1024

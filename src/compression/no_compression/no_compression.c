@@ -5,6 +5,7 @@
 #include "../crc32.h"
 #include "../../wrapper_functions.h"
 #include "../compression.h"
+#include "../../utils.h"
 
 #define BUFFER_SIZE 4096
 

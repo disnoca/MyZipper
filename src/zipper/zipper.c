@@ -7,7 +7,7 @@
 #include "queue.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
-#include "../macros.h"
+#include "../utils.h"
 
 typedef struct {
     LPWSTR zip_name;
