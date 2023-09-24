@@ -2,16 +2,57 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <windows.h>
 #include "../zip.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
+#include "../utils.h"
 
+
+static void create_directory(LPWSTR dir_name, uint16_t dir_attributes) {
+	if(!CreateDirectoryW(dir_name, NULL)) {
+		if(GetLastError() != ERROR_PATH_NOT_FOUND)
+			exit_with_error("CreateDirectoryW error: %lu\n", GetLastError());
+
+		// Get the full path of the directory
+		WCHAR full_path[MAX_PATH];
+		_GetFullPathNameW(dir_name, MAX_PATH, full_path, NULL);
+		
+		// Create the directory recursively
+		_SHCreateDirectoryExW(NULL, full_path, NULL);
+	}
+
+	_SetFileAttributesW(dir_name, dir_attributes);
+}
+
+static void create_file(LPWSTR file_name, uint16_t file_attributes) {
+	HANDLE hFile = CreateFileW(file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, file_attributes, NULL);
+
+	if(hFile == INVALID_HANDLE_VALUE) {
+		if(GetLastError() != ERROR_PATH_NOT_FOUND)
+			exit_with_error("CreateFileW error: %lu\n", GetLastError());
+
+		// Get the parent path of the file
+		WCHAR parent_path[MAX_PATH];
+		wcscpy(parent_path, file_name);
+		*wcsrchr(parent_path, L'/') = L'\0';
+		
+		// Create the parent directory and try to create the file again
+		create_directory(parent_path, FILE_ATTRIBUTE_DIRECTORY);
+		hFile = _CreateFileW(file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, file_attributes, NULL);
+	}
+
+	_CloseHandle(hFile);
+}
 
 static void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_header cdr) {
-	// todo: ask user if he wants to overwrite
-	HANDLE hFile = _CreateFileW(file_name, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, cdr.external_file_attributes & 0xFF, NULL);
-	_CloseHandle(hFile);
+	if(cdr.external_file_attributes & FILE_ATTRIBUTE_DIRECTORY) {
+		create_directory(file_name, cdr.external_file_attributes & 0xFF);
+		return;
+	}
+
+	create_file(file_name, cdr.external_file_attributes & 0xFF);
 
 	if(cdr.uncompressed_size == 0)
 		return;
@@ -24,7 +65,8 @@ static void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_he
 	default: break;
 	}
 
-	wprintf(L"%S is corrupted.\n", file_name);
+	if(cdr.crc32 != crc32)
+		printf("%ls is corrupted.\n", file_name);
 }
 
 int main() {
@@ -41,20 +83,38 @@ int main() {
 	_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
 
 	central_directory_header cdr;
-	LPWSTR file_name;
+	char utf8_file_name[MAX_PATH];
+	WCHAR utf16_file_name[MAX_PATH];
 
 	// Iterate over the central directory records
 	for(uint16_t i = 0; i < eocdr.total_num_records; i++) {
 		_ReadFile(hZip, &cdr, sizeof(central_directory_header), NULL, NULL);
 
-		file_name = Realloc(file_name, cdr.file_name_length + sizeof(WCHAR));
-		_ReadFile(hZip, file_name, cdr.file_name_length, NULL, NULL);
-		file_name[cdr.file_name_length] = L'\0';
+		if(cdr.signature != CENTRAL_DIRECTORY_HEADER_SIGNATURE)
+			exit_with_error("Invalid central directory header signature.\n");
 
-		extract_file(zip_name, file_name, cdr);
+		// Read the file name and convert it to UTF-16
+		_ReadFile(hZip, utf8_file_name, cdr.file_name_length, NULL, NULL);
 
-		_ReadFile(hZip, NULL, cdr.extra_field_length + cdr.file_comment_length, NULL, NULL);
+		// Exclude trailing slash if present
+		if(utf8_file_name[cdr.file_name_length - 1] == '/') {
+			cdr.external_file_attributes |= FILE_ATTRIBUTE_DIRECTORY;
+			utf8_file_name[cdr.file_name_length - 1] = '\0';
+		}
+		else
+			utf8_file_name[cdr.file_name_length] = '\0';
+		
+		_MultiByteToWideChar(CP_UTF8, 0, utf8_file_name, -1, utf16_file_name, MAX_PATH);
+
+		printf("Extracting %ls\n", utf16_file_name);
+		extract_file(zip_name, utf16_file_name, cdr);
+
+		li.QuadPart = cdr.extra_field_length + cdr.file_comment_length;
+		_SetFilePointerEx(hZip, li, NULL, FILE_CURRENT);
 	}
 
+	printf("Done.\n");
+
+	_CloseHandle(hZip);
 	return 0;
 }

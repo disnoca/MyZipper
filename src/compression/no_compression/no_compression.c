@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "../../zipper/zipper_file.h"
@@ -86,7 +87,7 @@ static uint32_t file_write(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin
 		threads_data[i].origin_name = origin_name;
 		threads_data[i].dest_name = dest_name;
 		threads_data[i].origin_offset = origin_offset + bytes_per_thread * i;
-		threads_data[i].dest_offset = dest_offset + threads_data[i].origin_offset;
+		threads_data[i].dest_offset = dest_offset + bytes_per_thread * i;
 		threads_data[i].num_bytes_to_write = bytes_per_thread;
 		if(i == num_threads - 1)
 			threads_data[i].num_bytes_to_write += remainder;

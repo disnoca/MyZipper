@@ -123,6 +123,11 @@ DWORD _GetFileAttributesW(LPCWSTR lpFileName) {
     return dwAttributes;
 }
 
+void _SetFileAttributesW(LPCWSTR lpFileName, DWORD dwFileAttributes) {
+    if(!SetFileAttributesW(lpFileName, dwFileAttributes))
+        exit_with_error("SetFileAttributesW error: %lu\n", GetLastError());
+}
+
 
 void _GetFileTime(HANDLE hFile, LPFILETIME lpCreationTime, LPFILETIME lpLastAccessTime, LPFILETIME lpLastWriteTime) {
     if(!GetFileTime(hFile, lpCreationTime, lpLastAccessTime, lpLastWriteTime))

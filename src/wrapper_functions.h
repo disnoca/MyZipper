@@ -30,6 +30,7 @@ void _Rewind(HANDLE hFile);
 void _GetOverlappedResult(HANDLE hFile, LPOVERLAPPED lpOverlapped, LPDWORD lpNumberOfBytesTransferred, BOOL bWait);
 
 DWORD _GetFileAttributesW(LPCWSTR lpFileName);
+void _SetFileAttributesW(LPCWSTR lpFileName, DWORD dwFileAttributes);
 
 void _GetFileTime(HANDLE hFile, LPFILETIME lpCreationTime, LPFILETIME lpLastAccessTime, LPFILETIME lpLastWriteTime);
 void _FileTimeToSystemTime(const FILETIME* lpFileTime, LPSYSTEMTIME lpSystemTime);
