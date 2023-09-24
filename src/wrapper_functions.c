@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <windows.h>
+#include <shlobj.h>
 #include "wrapper_functions.h"
 
 void exit_with_error(const char* format, ...) {
@@ -56,6 +57,26 @@ void _CloseHandle(HANDLE hObject) {
         exit_with_error("CloseHandle error: %lu\n", GetLastError());
 }
 
+
+void _CreateDirectoryW(LPCWSTR lpPathName, LPSECURITY_ATTRIBUTES lpSecurityAttributes) {
+    if(!CreateDirectoryW(lpPathName, lpSecurityAttributes))
+        exit_with_error("CreateDirectoryW error: %lu\n", GetLastError());
+}
+
+void _SHCreateDirectoryExW(HWND hwnd, LPCWSTR pszPath, const SECURITY_ATTRIBUTES *psa) {
+    if(SHCreateDirectoryExW(hwnd, pszPath, psa) != ERROR_SUCCESS)
+        exit_with_error("SHCreateDirectoryExA error: %lu\n", GetLastError());
+}
+
+DWORD _GetFullPathNameW(LPCWSTR lpFileName, DWORD nBufferLength, LPWSTR lpBuffer, LPWSTR *lpFilePart) {
+    DWORD dwRetVal = GetFullPathNameW(lpFileName, nBufferLength, lpBuffer, lpFilePart);
+    if(dwRetVal == 0)
+        exit_with_error("GetFullPathNameW error: %lu\n", GetLastError());
+    return dwRetVal;
+}
+
+
+
 BOOL _ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDWORD lpNumberOfBytesRead, LPOVERLAPPED lpOverlapped) {
     if(!ReadFile(hFile, lpBuffer, nNumberOfBytesToRead, lpNumberOfBytesRead, lpOverlapped)) {
         if(GetLastError() != ERROR_IO_PENDING)
@@ -71,6 +92,7 @@ void _WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite, LPD
             exit_with_error("WriteFile error: %lu\n", GetLastError());
 }
 
+
 void _SetFilePointerEx(HANDLE hFile, LARGE_INTEGER liDistanceToMove, PLARGE_INTEGER lpNewFilePointer, DWORD dwMoveMethod) {
     if(!SetFilePointerEx(hFile, liDistanceToMove, lpNewFilePointer, dwMoveMethod))
         exit_with_error("SetFilePointerEx error: %lu\n", GetLastError());
@@ -81,6 +103,7 @@ LONGLONG _GetFilePointerEx(HANDLE hFile) {
     SetFilePointerEx(hFile, fp, &fp, FILE_CURRENT);
     return fp.QuadPart;
 }
+
 
 void _Rewind(HANDLE hFile) {
     if(SetFilePointer(hFile, 0, NULL, FILE_BEGIN) == INVALID_SET_FILE_POINTER)

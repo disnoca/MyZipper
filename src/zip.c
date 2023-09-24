@@ -25,7 +25,7 @@ end_of_central_directory_record find_end_of_central_directory_record(LPWSTR zip_
 	if(eocdr.signature == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE)
 		return eocdr;
 
-	uint8_t* buffer = Malloc(SEARCH_BUFFER_SIZE);
+	uint8_t buffer[SEARCH_BUFFER_SIZE];
 	uint32_t signature = END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
 
 	// Work backwards in batches until signature is found, file ends or end of central directory record's max size is reached
@@ -45,13 +45,11 @@ end_of_central_directory_record find_end_of_central_directory_record(LPWSTR zip_
 					_ReadFile(hZip, &eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
 				}
 
-				Free(buffer);
 				_CloseHandle(hZip);
 				return eocdr;
 			}
 	}
 	
-	Free(buffer);
 	_CloseHandle(hZip);
 	return (end_of_central_directory_record){0};
 }

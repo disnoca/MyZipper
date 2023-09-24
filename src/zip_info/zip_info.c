@@ -24,8 +24,7 @@ static void read_central_directory(HANDLE hZip, end_of_central_directory_record 
 	_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
 
 	central_directory_header cdr;
-	char *file_name = NULL, *comment = NULL;
-	void *extra_field = NULL;
+	char file_name[MAX_PATH];
 
 	// Iterate over the central directory records
 	for(uint16_t i = 0; i < eocdr.total_num_records; i++) {
@@ -37,27 +36,17 @@ static void read_central_directory(HANDLE hZip, end_of_central_directory_record 
 			return;
 		}
 
-		// Read variable length fields
+		// Read name and skip other variable length fields
 		if(cdr.file_name_length > 0) {
-			file_name = Realloc(file_name, cdr.file_name_length + 1);
 			_ReadFile(hZip, file_name, cdr.file_name_length, NULL, NULL);
 			file_name[cdr.file_name_length] = '\0';
 		}
 
-		if(cdr.extra_field_length > 0) {
-			extra_field = Realloc(extra_field, cdr.extra_field_length);
-			_ReadFile(hZip, extra_field, cdr.extra_field_length, NULL, NULL);
-		}
-
-		if(cdr.file_comment_length > 0) {
-			comment = Realloc(comment, cdr.file_comment_length + 1);
-			_ReadFile(hZip, comment, cdr.file_comment_length, NULL, NULL);
-			comment[cdr.file_name_length] = '\0';
-		}
+		li.QuadPart = cdr.extra_field_length + cdr.file_comment_length;
+		_SetFilePointerEx(hZip, li, NULL, FILE_CURRENT);
 
 		// Print information
 		printf("File Name: %s\n", cdr.file_name_length > 0 ? file_name : "");
-		printf("Comment: %s\n", cdr.file_comment_length > 0 ? comment : "");
 		printf("Compression: %hu\n", cdr.compression);
 		printf("Modified Time: %hx\n", cdr.mod_time);
 		printf("Modified Date: %hx\n", cdr.mod_date);
@@ -66,9 +55,6 @@ static void read_central_directory(HANDLE hZip, end_of_central_directory_record 
 		printf("Uncompressed Size: %u\n", cdr.uncompressed_size);
 		printf("Local Header Offset: %u\n\n", cdr.local_header_offset);
 	}
-	
-	Free(file_name);
-	Free(comment);
 }
 
 int main() {

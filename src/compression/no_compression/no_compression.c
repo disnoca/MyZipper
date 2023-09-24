@@ -25,7 +25,7 @@ DWORD WINAPI thread_file_write(void* data) {
   	HANDLE hDest = _CreateFileW(fwtd->dest_name, GENERIC_WRITE, FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_FLAG_OVERLAPPED, NULL);
 	_SetFilePointerEx(hOrigin, (LARGE_INTEGER) {.QuadPart = fwtd->origin_offset}, NULL, FILE_BEGIN);
 
-	unsigned char* buffer = Malloc(BUFFER_SIZE);
+	unsigned char buffer[BUFFER_SIZE];
 	DWORD batch_size;
     uint64_t total_bytes_written = 0, curr_offset = fwtd->dest_offset;
 
@@ -60,7 +60,6 @@ DWORD WINAPI thread_file_write(void* data) {
 
 	_CloseHandle(hOrigin);
 	_CloseHandle(hDest);
-	Free(buffer);
   	return 0;
 }
 
@@ -76,8 +75,8 @@ DWORD WINAPI thread_file_write(void* data) {
 static uint32_t file_write(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin_offset, uint64_t dest_offset, uint64_t file_size) {
 	unsigned num_threads = file_size > MIN_SIZE_FOR_CONCURRENCY ? num_cores() : 1;
 
-	file_write_thread_data* threads_data = Malloc(num_threads * sizeof(file_write_thread_data));
-	HANDLE* threads = Malloc(num_threads * sizeof(HANDLE));
+	file_write_thread_data threads_data[num_threads];
+	HANDLE threads[num_threads];
 
 	uint64_t bytes_per_thread = file_size / num_threads;
 	unsigned remainder = file_size % num_threads;
@@ -103,9 +102,6 @@ static uint32_t file_write(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin
 	uint32_t crc32 = threads_data[0].crc32;
 	for(unsigned i = 1; i < num_threads; i++)
 		crc32 = crc32_combine(crc32, threads_data[i].crc32, threads_data[i].num_bytes_to_write);
-
-	Free(threads_data);
-	Free(threads);
 
 	return crc32;
 }
