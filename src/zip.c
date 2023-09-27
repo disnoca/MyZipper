@@ -9,21 +9,19 @@
 #define END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE_FIRST_BYTE 	(END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE & 0xFF)
 
 
-end_of_central_directory_record find_end_of_central_directory_record(LPWSTR zip_name) {
-	end_of_central_directory_record eocdr = {0};
-
+void find_end_of_central_directory_record(LPWSTR zip_name, end_of_central_directory_record* out_eocdr) {
 	// Check if zip is empty
 	HANDLE hZip = _CreateFileW(zip_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-	_ReadFile(hZip, &eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
-	if(eocdr.signature == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE)
-		return eocdr;
+	_ReadFile(hZip, out_eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
+	if(out_eocdr->signature == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE)
+		return;
 
 	// Set file pointer to the start of the end of central directory record assuming there is no comment
 	LARGE_INTEGER li = {.QuadPart = -sizeof(end_of_central_directory_record)};
 	_SetFilePointerEx(hZip, li, &li, FILE_END);
-	_ReadFile(hZip, &eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
-	if(eocdr.signature == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE)
-		return eocdr;
+	_ReadFile(hZip, out_eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
+	if(out_eocdr->signature == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE)
+		return;
 
 	uint8_t buffer[SEARCH_BUFFER_SIZE];
 	uint32_t signature = END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE;
@@ -38,18 +36,18 @@ end_of_central_directory_record find_end_of_central_directory_record(LPWSTR zip_
 			if(buffer[j] == END_OF_CENTRAL_DIRECTORY_RECORD_SIGNATURE_FIRST_BYTE && !memcmp(buffer + j, &signature, sizeof(uint32_t))) {
 				// buffer might not have all the necessary data, in which case read it from file
 				if(j <= SEARCH_BUFFER_SIZE - sizeof(end_of_central_directory_record))
-					memcpy(&eocdr, buffer + j, sizeof(end_of_central_directory_record));
+					memcpy(out_eocdr, buffer + j, sizeof(end_of_central_directory_record));
 				else {
 					li.QuadPart += j;
 					_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
-					_ReadFile(hZip, &eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
+					_ReadFile(hZip, out_eocdr, sizeof(end_of_central_directory_record), NULL, NULL);
 				}
 
 				_CloseHandle(hZip);
-				return eocdr;
+				return;
 			}
 	}
 	
 	_CloseHandle(hZip);
-	return (end_of_central_directory_record){0};
+	// error, not found
 }

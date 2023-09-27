@@ -12,6 +12,7 @@
 
 #define MIN_SIZE_FOR_CONCURRENCY 10 * 1024 * 1024	// 10 MB
 
+
 typedef struct {
 	LPWSTR origin_name, dest_name;
 	uint64_t origin_offset, dest_offset;
@@ -19,7 +20,7 @@ typedef struct {
 	uint32_t crc32;
 } file_write_thread_data;
 
-DWORD WINAPI thread_file_write(void* data) {
+static DWORD WINAPI thread_file_write(void* data) {
 	file_write_thread_data* fwtd = (file_write_thread_data*) data;
 	uint32_t crc32 = CRC32_INITIAL_VALUE;
 
@@ -107,6 +108,7 @@ static uint32_t file_write(LPWSTR origin_name, LPWSTR dest_name, uint64_t origin
 
 	return crc32;
 }
+
 
 compression_result no_compression_compress(LPWSTR origin_name, LPWSTR dest_name, uint64_t dest_offset, uint64_t file_size) {
 	compression_result cr;

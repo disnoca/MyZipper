@@ -110,8 +110,8 @@ typedef struct {
  * Returns the end of central directory record of the specified zip file. If not found, returns an empty struct.
  * 
  * @param zip_name the name of the zip file
- * @return if found, the end of central directory record of the specified zip file, outherwise, an empty struct
+ * @param out_eocdr a pointer to a variable to receive the end of central directory record
 */
-end_of_central_directory_record find_end_of_central_directory_record(LPWSTR zip_name);
+void find_end_of_central_directory_record(LPWSTR zip_name, end_of_central_directory_record* out_eocdr);
 
 #endif

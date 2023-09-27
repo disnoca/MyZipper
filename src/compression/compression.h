@@ -2,6 +2,7 @@
 #define _COMPRESSION_H
 
 #include <windows.h>
+#include <stdint.h>
 
 #define NO_COMPRESSION 0
 

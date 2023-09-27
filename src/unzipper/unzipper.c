@@ -50,21 +50,21 @@ static void create_file(LPWSTR file_name, uint16_t file_attributes) {
 
 /* Main Functions */
 
-void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_header cdr, local_file_header lfh) {
-	if(cdr.external_file_attributes & FILE_ATTRIBUTE_DIRECTORY) {
-		create_directory(file_name, cdr.external_file_attributes & 0xFF);
+void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_header* cdr, local_file_header* lfh) {
+	if(cdr->external_file_attributes & FILE_ATTRIBUTE_DIRECTORY) {
+		create_directory(file_name, cdr->external_file_attributes & 0xFF);
 		return;
 	}
 
-	create_file(file_name, cdr.external_file_attributes & 0xFF);
+	create_file(file_name, cdr->external_file_attributes & 0xFF);
 
-	if(cdr.uncompressed_size == 0)
+	if(cdr->uncompressed_size == 0)
 		return;
 
-	uint64_t file_data_offset = cdr.local_header_offset + sizeof(local_file_header) + lfh.file_name_length + lfh.extra_field_length;
+	uint64_t file_data_offset = cdr->local_header_offset + sizeof(local_file_header) + lfh->file_name_length + lfh->extra_field_length;
 
-	switch(cdr.compression) {
-		case(NO_COMPRESSION): no_compression_decompress(zip_name, file_name, file_data_offset, cdr.compressed_size); break;
+	switch(cdr->compression) {
+		case(NO_COMPRESSION): no_compression_decompress(zip_name, file_name, file_data_offset, cdr->compressed_size); break;
 		default: break;
 	}
 }
@@ -76,7 +76,8 @@ int main() {
 	LPWSTR zip_name = argv[1];
 	HANDLE hZip = _CreateFileW(zip_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	
-	end_of_central_directory_record eocdr = find_end_of_central_directory_record(zip_name);
+	end_of_central_directory_record eocdr;
+	find_end_of_central_directory_record(zip_name, &eocdr);
 
 	// Set file pointer to the start of the central directory
 	LARGE_INTEGER cdCursor = {.QuadPart = eocdr.central_directory_start_offset};
@@ -110,7 +111,7 @@ int main() {
 		_ReadFile(hZip, &lfh, sizeof(local_file_header), NULL, NULL);
 
 		printf("Extracting %ls\n", utf16_file_name);
-		extract_file(zip_name, utf16_file_name, cdr, lfh);
+		extract_file(zip_name, utf16_file_name, &cdr, &lfh);
 
 		// Position FP onto the next central directory record
 		cdCursor.QuadPart += sizeof(central_directory_header) + cdr.file_name_length + cdr.extra_field_length + cdr.file_comment_length;
