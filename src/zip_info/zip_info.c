@@ -6,7 +6,6 @@
 #include <stdio.h>
 #include "../zip.h"
 #include "../wrapper_functions.h"
-#include "../utils.h"
 
 
 /* Main Functions */

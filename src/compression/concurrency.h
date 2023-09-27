@@ -6,6 +6,6 @@
  * 
  * @return the number of cores in the system
 */
-unsigned num_cores();
+DWORD num_cores();
 
 #endif

@@ -3,7 +3,6 @@
 *.zip
 *.jpg
 *.pdf
-*.txt
 .vscode
 build
 test

@@ -7,8 +7,9 @@
 #include "../zip.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
-#include "../utils.h"
 
+
+/* Helper Functions */
 
 static void create_directory(LPWSTR dir_name, uint16_t dir_attributes) {
 	if(!CreateDirectoryW(dir_name, NULL)) {
@@ -46,7 +47,10 @@ static void create_file(LPWSTR file_name, uint16_t file_attributes) {
 	_CloseHandle(hFile);
 }
 
-static void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_header cdr) {
+
+/* Main Functions */
+
+void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_header cdr, local_file_header lfh) {
 	if(cdr.external_file_attributes & FILE_ATTRIBUTE_DIRECTORY) {
 		create_directory(file_name, cdr.external_file_attributes & 0xFF);
 		return;
@@ -57,16 +61,12 @@ static void extract_file(LPWSTR zip_name, LPWSTR file_name, central_directory_he
 	if(cdr.uncompressed_size == 0)
 		return;
 
-	uint64_t file_data_offset = cdr.local_header_offset + sizeof(local_file_header) + cdr.file_name_length + cdr.extra_field_length;
-	uint32_t crc32;
+	uint64_t file_data_offset = cdr.local_header_offset + sizeof(local_file_header) + lfh.file_name_length + lfh.extra_field_length;
 
 	switch(cdr.compression) {
-	case(NO_COMPRESSION): crc32 = no_compression_decompress(zip_name, file_name, file_data_offset, cdr.compressed_size); break;
-	default: break;
+		case(NO_COMPRESSION): no_compression_decompress(zip_name, file_name, file_data_offset, cdr.compressed_size); break;
+		default: break;
 	}
-
-	if(cdr.crc32 != crc32)
-		printf("%ls is corrupted.\n", file_name);
 }
 
 int main() {
@@ -79,21 +79,20 @@ int main() {
 	end_of_central_directory_record eocdr = find_end_of_central_directory_record(zip_name);
 
 	// Set file pointer to the start of the central directory
-	LARGE_INTEGER li = {.QuadPart = eocdr.central_directory_start_offset};
-	_SetFilePointerEx(hZip, li, NULL, FILE_BEGIN);
+	LARGE_INTEGER cdCursor = {.QuadPart = eocdr.central_directory_start_offset};
+	_SetFilePointerEx(hZip, cdCursor, NULL, FILE_BEGIN);
 
 	central_directory_header cdr;
+	local_file_header lfh;
 	char utf8_file_name[MAX_PATH];
 	WCHAR utf16_file_name[MAX_PATH];
 
 	// Iterate over the central directory records
 	for(uint16_t i = 0; i < eocdr.total_num_records; i++) {
+		// Read central directory header
 		_ReadFile(hZip, &cdr, sizeof(central_directory_header), NULL, NULL);
 
-		if(cdr.signature != CENTRAL_DIRECTORY_HEADER_SIGNATURE)
-			exit_with_error("Invalid central directory header signature.\n");
-
-		// Read the file name and convert it to UTF-16
+		// Read the file name
 		_ReadFile(hZip, utf8_file_name, cdr.file_name_length, NULL, NULL);
 
 		// Exclude trailing slash if present
@@ -106,11 +105,16 @@ int main() {
 		
 		_MultiByteToWideChar(CP_UTF8, 0, utf8_file_name, -1, utf16_file_name, MAX_PATH);
 
-		printf("Extracting %ls\n", utf16_file_name);
-		extract_file(zip_name, utf16_file_name, cdr);
+		// Read local file header
+		_SetFilePointerEx(hZip, (LARGE_INTEGER){.QuadPart = cdr.local_header_offset} , NULL, FILE_BEGIN);
+		_ReadFile(hZip, &lfh, sizeof(local_file_header), NULL, NULL);
 
-		li.QuadPart = cdr.extra_field_length + cdr.file_comment_length;
-		_SetFilePointerEx(hZip, li, NULL, FILE_CURRENT);
+		printf("Extracting %ls\n", utf16_file_name);
+		extract_file(zip_name, utf16_file_name, cdr, lfh);
+
+		// Position FP onto the next central directory record
+		cdCursor.QuadPart += sizeof(central_directory_header) + cdr.file_name_length + cdr.extra_field_length + cdr.file_comment_length;
+		_SetFilePointerEx(hZip, cdCursor, NULL, FILE_BEGIN);
 	}
 
 	printf("Done\n");

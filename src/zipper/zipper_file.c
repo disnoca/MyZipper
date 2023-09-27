@@ -4,12 +4,19 @@
 #include "zipper_file.h"
 #include "../compression/compression.h"
 #include "../wrapper_functions.h"
-#include "../utils.h"
 
 #define DIRECTORY_FILES_BUFFER_INITIAL_CAPACITY 10
 
 
 /* Helper Functions */
+
+void replace_char(char* str, char find, char replace) {
+	char* current_pos = strchr(str, find);
+	while(current_pos) {
+		*current_pos = replace;
+		current_pos = strchr(current_pos, find);
+	}
+}
 
 static void get_file_name(zipper_file* zf, LPWSTR path) {
 	// Cut out preceding dot and slash if in path
@@ -46,7 +53,7 @@ static void get_file_size(zipper_file* zf) {
 	zf->uncompressed_size = fileSize.QuadPart;
 }
 
-static void get_compression_function_and_size(zipper_file* zf) {
+static void get_compression_function(zipper_file* zf) {
 	switch(zf->compression_method) {
 		case(NO_COMPRESSION): zf->compression_func = no_compression_compress; break;
 	}
@@ -137,7 +144,7 @@ zipper_file* zfile_create(LPWSTR path, unsigned compression_method) {
 
 	if(zf->uncompressed_size > 0) {
 		zf->compression_method = compression_method;
-		get_compression_function_and_size(zf);
+		get_compression_function(zf);
 	}
 
     return zf;
