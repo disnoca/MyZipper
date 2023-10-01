@@ -1,13 +1,12 @@
 ## TODO
 General:
-- errors codes and ways to handle them
+- detect errors and corruption, cancel program, and show error popup
 
 Zipper:
 
 Zip info:
 
 Unzipper:
-- skip directories if they already exist
 - ask user if he wants to overwrite on file creation conflict
 
 Other programs:

@@ -13,6 +13,9 @@
 
 static void create_directory(LPWSTR dir_name, uint16_t dir_attributes) {
 	if(!CreateDirectoryW(dir_name, NULL)) {
+		if(GetLastError() == ERROR_ALREADY_EXISTS)
+			return;
+
 		if(GetLastError() != ERROR_PATH_NOT_FOUND)
 			exit_with_error("CreateDirectoryW error: %lu\n", GetLastError());
 
