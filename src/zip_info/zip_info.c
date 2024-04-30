@@ -60,6 +60,11 @@ int main() {
 	int argc;
 	LPWSTR* argv = _CommandLineToArgvW(GetCommandLineW(), &argc);
 
+	if(argc != 2) {
+		printf("Usage: zip_info archive_name\n");
+		return 0;
+	}
+
 	LPWSTR zip_name = argv[1];
 	HANDLE hZip = _CreateFileW(zip_name, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 

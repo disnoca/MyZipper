@@ -200,6 +200,11 @@ int main() {
 	int argc;
 	LPWSTR* argv = _CommandLineToArgvW(GetCommandLineW(), &argc);
 
+	if(argc < 2) {
+		printf("Usage: zipper archive_name file_to_add_1 ... file_to_add_n\n");
+		return 0;
+	}
+
 	zipper_context zc = {0};
 
 	zc.zip_name = argv[1];
